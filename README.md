@@ -1,4 +1,10 @@
+<img src="assets\PPI_logo.png" width="400" alt="Logo PPI">
+<br>
+<br>
 
+# DATA
+
+<img src="assets\schema.png">
 
 # TAREAS
 
@@ -8,3 +14,4 @@
     - Nombre proyecto peticionario ?
     - Como se dan de alta los pedidos? No emitidos? lo discrimino
 - CAW/SISTEMAS, trabajar en el puerto 8501 (Test) / otro (Producción)
+

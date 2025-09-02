@@ -1,4 +1,13 @@
 import streamlit as st
+from functions import *
+
+
+## PAGE
+## ____________________________________________________________________________________________________________________________________________________________________
+
+session_state_start()
+
+st.logo(r'assets\logo_extend.svg', size='large')
 
 st.title('PPI PROJECT')
 st.divider()

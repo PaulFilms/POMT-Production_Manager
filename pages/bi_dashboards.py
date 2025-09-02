@@ -54,6 +54,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+## PAGE
+## ____________________________________________________________________________________________________________________________________________________________________
+
+st.logo(r'assets\logo_extend.svg', size='large')
+
 # Crear datos para dos años con detalle mensual
 dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq='MS')  # primer día de cada mes
 phones = [f"Hito {i+1}" for i in range(len(dates))]

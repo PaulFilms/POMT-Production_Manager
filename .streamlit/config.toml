@@ -1,0 +1,9 @@
+[theme]
+base="dark"
+primaryColor="purple"
+
+[client]
+showSidebarNavigation = true
+
+[browser]
+gatherUsageStats = false

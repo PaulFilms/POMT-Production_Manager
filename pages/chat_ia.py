@@ -1,7 +1,5 @@
 import streamlit as st
 
-st.warning('ISRA DAME TIEMPOOOOO', icon='⚠️')
-
 if not 'conver' in st.session_state:
     st.session_state.conver = list()
 
