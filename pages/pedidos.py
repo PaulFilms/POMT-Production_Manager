@@ -20,19 +20,8 @@ session_state_start()
 ## ____________________________________________________________________________________________________________________________________________________________________
 
 file_name = "pedidosPorPosicion.xlsx"
-pedidos_columns = ['id', '#', 'info', 'bu_id', 'FECHA_INI', 'FECHA_FIN']
-for c in Causas: pedidos_columns.append(c.name)
 
-# @dataclass
-# class PDCA:
-#     alerta: str
-#     b_unit: str
-#     responsable: str
-#     causa: str
-#     asunto: str
-#     accion: str
-#     fecha: float
-#     # file: str       = None
+if not 'iloc' in st.session_state: st.session_state.iloc = None
 
 def update_xlsx(path_xlsx):
     xlsx = XLSREPORT(path_xlsx, 'Pedidos')
@@ -40,30 +29,22 @@ def update_xlsx(path_xlsx):
     max_col = xlsx.wb.active.max_column
 
     header_row = 9
-    # headers: list[str] = [xlsx.rd(row=9, column=col+1) for col in range(max_col)]
     headers: list[str] = [f"{col+1}@{xlsx.rd(row=9, column=col+1)}" for col in range(max_col)]
-    # st.write(max_col, len(headers))
 
     for row in range(header_row, max_row): 
         row_data = dict()
         for h in headers:
             value = xlsx.rd(row=row+1, column=headers.index(h)+1)
             if isinstance(value, datetime):
-                # st.write('datetime', value)
                 value = value.strftime(r'%Y-%m-%d')
-                # st.write(value)
             row_data[h] = value
-        # st.write(row_data)
 
         id = row_data['1@Código de pedido']
-        # print(id)
         db_data = json.dumps({'xlsx': row_data})
 
         count = DB.execute('SELECT COUNT (*) FROM pedidos WHERE id=?',values=[id], fetch=1)[0]
-        # st.write(count)
         if count == 0:
-            values = {'id': id, 'firm': f'TEST / {datetime.now()}', 'DB': db_data}
-            # print(values)
+            values = {'id': id, 'firm': st.session_state.login.get_firm(), 'DB': db_data}
             DB.insert('pedidos', values)
             st.session_state.pedidos += 1
         else:
@@ -76,12 +57,9 @@ def update_xlsx(path_xlsx):
             #     st.warning("⚠️ MODIFICAR")
                 # st.write(row_data)
             DB.update_json('pedidos', 'DB', 'id', id, db_data)
-            DB.update(table='pedidos', values={'firm': f'TEST / {datetime.now()}'}, where={'id': id})
+            DB.update(table='pedidos', values={'firm': st.session_state.login.get_firm()}, where={'id': id})
     
     st.rerun()
-
-def st_table():
-    pass
 
 def st_timeline(dataframe: pd.DataFrame):
 
@@ -186,21 +164,28 @@ def st_update():
                     update(tmp_path)
                     # st.success(f'DATOS ACTUALIZADOS: {datetime.now()}')
 
-@st.dialog('NUEVA PDCA', width='medium')
-def add_pdca(pedido_id: str):
+@st.dialog('EDITAR PEDIDO', width='medium')
+def edit_pedido(x):
+    st.radio('ALARMA', options=["🟥","🟨","🟩"], index=None, horizontal=True)
+    st.text_area('INFO / DESCRIPCIÓN', value=x['info'], height=1)
+    st.text_input('RESPONSABLE', value='')
+    st.write(x)
+
+@st.dialog('NUEVA ACCIÓN', width='medium')
+def form_accion(pedido_id: str):
     # st.file_uploader('pedidosPorPosicion.xlsx', type=['.xlsx'], accept_multiple_files=False)
     # st.file_uploader('Seguimiento plan de entregas_ING_Navales.xlsx', type=['.xlsx'], accept_multiple_files=False)
     
     col_alert, col_bu, col_user = st.columns(3)
 
-    alarma      = col_alert.radio('ALARMA', options=["🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=True)
-    b_unit      = col_bu.selectbox('BUSINESS UNIT', options=get_business_units(st.session_state.bu)['id'].tolist(), index=None, accept_new_options=False)
-    usuario_id  = col_user.selectbox('RESPONSABLE', options=['DEPA1_USER','DEPA2_USER','DEPA3_USER','DEPA4_USER',], index=None, accept_new_options=False)
-    causa       = st.selectbox('CAUSA TIPO', options=[c.value for c in Causas], index=None, label_visibility='visible', )
-    info        = st.text_area('INFO', value='', width='stretch') # height=1, 
-    accion      = st.text_area('ACCIÓN', value='', height=1, width='stretch')
-    fecha       = st.date_input('FECHA REQUERIDA', min_value=datetime.now().date(), value=None)
-    file        = st.file_uploader('INSERT FILE (PHOTO/PDF/etc)', disabled=True)
+    alarma          = col_alert.radio('ALARMA', options=["🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=True)
+    departamento    = col_bu.selectbox('DEPARTAMENTO', options=get_departamentos(st.session_state.departamentos)['id'].tolist(), index=None, accept_new_options=False)
+    usuario_id      = col_user.selectbox('RESPONSABLE', options=get_usuarios_by_dept(departamento), index=None, accept_new_options=False)
+    causa           = st.selectbox('CAUSA TIPO', options=[c.value for c in Causas], index=None, label_visibility='visible', )
+    info            = st.text_area('INFO', value='', width='stretch') # height=1, 
+    accion          = st.text_area('ACCIÓN', value='', height=1, width='stretch')
+    fecha           = st.date_input('FECHA REQUERIDA', min_value=datetime.now().date(), value=None)
+    # file            = st.file_uploader('INSERT FILE (PHOTO/PDF/etc)', disabled=True)
     # st.camera_input('INSERT PHOTO')
 
     st.container(border=False, height=20) ## Separador
@@ -229,203 +214,296 @@ def add_pdca(pedido_id: str):
                 'info': info,
                 'accion': accion,
                 'usuario_id': usuario_id,
-                'fecha': fecha_ts,
-                'firm': f'{st.session_state.login} / {datetime.now()}'
+                'fecha_accion': datetime.today().timestamp(),
+                'fecha_req': fecha_ts,
+                'estado': 1,
+                'firm': st.session_state.login.get_firm()
             }
             DB.insert('acciones', values=values)
-            # DB.update('pedidos', values={'alarma': alarma_indx, 'firm': f'{st.session_state.login} / {datetime.now()}'}, where={'id': pedido})
             DB.update_json('pedidos', 'DB', 'id', pedido, {causa_id: alarma_indx})
             st.session_state.pedidos += 1
             st.rerun()
 
+@st.dialog('DETALLE ACCIÓN', width='medium')
+def detalle_accion(x):
+    st.write(x)
+
+def tbl_pedidos() -> str:
+    pedidos_columns = ['id', '#', 'info', 'bu_id', 'FECHA_INI', 'FECHA_FIN', '∑']
+    for c in Causas: pedidos_columns.append(c.name)
+
+    ## OPTIONS
+    col1, col2, col3 = st.columns(3)
+
+    with col1.popover('TABLE OPTIONS', icon='🔧', width='stretch'):
+        tbl_height = st.slider(label='HEIGHT', label_visibility='visible', min_value=200, max_value=1000)
+        filter_bunit = st.selectbox('BUSINESS UNIT', options=get_business_units()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False )
+        filter_alert = st.radio('ALERT', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content')
+        # btn_update = st.button('UPDATE FROM *.xlsx', icon='🧷', width='content', on_click=update_cosas, help=f'Actualizar los datos de pedidos desde el fichero <{file_name}>', use_container_width=True)
+        # st.file_uploader("ACTUALIZAR DATOS DESDE .xlsx")
+    
+    with col3:
+        filter_str = st.text_input('FILTER', label_visibility='collapsed', icon='🔍')
+
+    ## DATAFRAME
+    df = get_pedidos(st.session_state.pedidos)
+    df_filter1 = df[pedidos_columns]
+    df_filtered2 = df_filter1
+    if filter_bunit:
+        df_filter2 = df_filter1[df_filter1['bu_id']==filter_bunit]
+    else:
+        df_filter2 = df_filter1
+    if filter_alert in Alarmas.colors():
+        df_filter3 = df_filter2[df_filter2['alarma']==Alarmas.colors().index(filter_alert)]
+    else:
+        df_filter3 = df_filter2
+    if filter_str and filter_str != '':
+        # mask = df_filtered1.apply(lambda col: col.str.contains(df_filter_str, na=False)).any(axis=1)
+        mask = df_filter3.select_dtypes(include=['object']).apply(
+                lambda col: col.str.contains(filter_str, na=False)
+            ).any(axis=1)
+        df_filter4 = df_filter3[mask]
+    else: 
+        df_filter4 = df_filter3
+    
+    ## TABLE
+    columns_config = {
+        '#': st.column_config.Column('#', width=10),
+        'info': st.column_config.Column('info', width='medium'),
+        'FECHA_INI': st.column_config.DatetimeColumn('FECHA_INI', format="YYYY-MM-DD", width='small'),
+        'FECHA_FIN': st.column_config.DatetimeColumn('FECHA_FIN', format="YYYY-MM-DD", width='small'),
+        '∑': st.column_config.NumberColumn('∑', width=10)
+    }
+    for c in Causas:
+        columns_config[c.name] = st.column_config.Column(c.name, width=10, help=c.value)
+    
+    tbl = st.dataframe(
+        df_filter4,
+        hide_index=True,
+        width='stretch',
+        selection_mode='single-row',
+        on_select='rerun',
+        height=tbl_height,
+        column_config=columns_config
+    )
+
+    tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None
+
+    if tbl_iloc is not None:
+        if col2.button('EDITAR PEDIDO', icon='✏️', width='stretch'):
+            edit_pedido(df.iloc[tbl_iloc].to_dict())
+
+    return tbl_iloc
+
+def tbl_acciones():
+    pass
+
+
+# <h2>Resumen del Proyecto</h2>
+
+html_table = """
+<p>&nbsp;</p>
+<p>ALARMA GPI: 🟥</p>
+<p>&nbsp;</p>
+<table style="width:100%; border-collapse: collapse;" border="1">
+    <tbody>
+    <tr style="background-color:#f2f2f2;">
+    <td>ACCIONES</td>
+    <td>ALARMA</td>
+    <td>FECHA</td>
+    </tr>
+    <tr>
+    <td>accion1</td>
+    <td>🟥</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>accion2</td>
+    <td>🟩</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>accion3</td>
+    <td>🟨</td>
+    <td>2028-03-03</td>
+    </tr>
+    </tbody>
+</table>
+<p>&nbsp;</p>
+<table style="width:100%; border-collapse: collapse;" border="1">
+    <tbody>
+    <tr style="background-color:#f2f2f2;">
+    <td>HITOS</td>
+    <td>ALARMA</td>
+    <td>FECHA</td>
+    </tr>
+    <tr>
+    <td>hito1</td>
+    <td>🟥</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>hito2</td>
+    <td>🟩</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>hito3</td>
+    <td>🟨</td>
+    <td>2028-03-03</td>
+    </tr>
+    </tbody>
+</table>
+"""
 
 
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.logo(r'assets\logo_extend.svg', size='large')
-
-# with st.sidebar:
+with st.sidebar:
+    st.radio("GPI's", options=['By GPI', 'By Table'])
 #     st.write('OPTIONS:')
 #     # ck_table = st.checkbox('DATA TABLE', value=False)
 #     ck_timeline = st.checkbox('TIMELINE', value=False)
 #     # ck_update = st.checkbox('UPDATE', value=False)
 #     # st.button('UPDATE', icon='🧷', use_container_width=True)
 #     # st.divider()
-    
 
-col_tbl_1, col_tbl_2, col_tbl_3 = st.columns(3)
+st.logo(r'assets\logo_extend.svg', size='large')
 
-with col_tbl_1.popover('TABLE OPTIONS', icon='🔧', width='stretch'):
-    df_height = st.slider(label='HEIGHT', label_visibility='visible', min_value=200, max_value=1000)
-    bu = st.selectbox('BUSINESS UNIT', options=get_business_units()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False )
-    df_alert = st.radio('ALERT', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content')
-    # btn_update = st.button('UPDATE FROM *.xlsx', icon='🧷', width='content', on_click=update_cosas, help=f'Actualizar los datos de pedidos desde el fichero <{file_name}>', use_container_width=True)
-    st.file_uploader("ACTUALIZAR DATOS DESDE .xlsx")
+# # with st.expander('TABLA PEDIDOS', expanded=True):
+# col_tbl_1, col_tbl_2, col_tbl_3 = st.columns(3)
 
-df = get_pedidos(st.session_state.pedidos)
+# with col_tbl_1.popover('TABLE OPTIONS', icon='🔧', width='stretch'):
+#     df_height = st.slider(label='HEIGHT', label_visibility='visible', min_value=200, max_value=1000)
+#     bu = st.selectbox('BUSINESS UNIT', options=get_business_units()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False )
+#     df_alert = st.radio('ALERT', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content')
+#     # btn_update = st.button('UPDATE FROM *.xlsx', icon='🧷', width='content', on_click=update_cosas, help=f'Actualizar los datos de pedidos desde el fichero <{file_name}>', use_container_width=True)
+#     st.file_uploader("ACTUALIZAR DATOS DESDE .xlsx")
 
-# col2.write('TABLE FILTER:')
-# col2.selectbox('ALERTA', label_visibility='collapsed', options=["🟥","🟨","🟩"], width='stretch')
-# df_height = col_tbl_2.slider(label='HEIGHT', label_visibility='collapsed', min_value=200, max_value=1000)
+# df = get_pedidos(st.session_state.pedidos)
 
-## FILTERS
-df_filter_str = col_tbl_3.text_input('FILTER', label_visibility='collapsed', icon='🔍')
-df_filtered1 = df[pedidos_columns]
-if df_filter_str and df_filter_str != '':
-    # mask = df_filtered1.apply(lambda col: col.str.contains(df_filter_str, na=False)).any(axis=1)
-    mask = df_filtered1.select_dtypes(include=['object']).apply(
-            lambda col: col.str.contains(df_filter_str, na=False)
-        ).any(axis=1)
-    df_filtered2 = df_filtered1[mask]
-else: df_filtered2 = df_filtered1
+# ## FILTERS
+# df_filter_str = col_tbl_3.text_input('FILTER', label_visibility='collapsed', icon='🔍')
+# df_filtered1 = df[pedidos_columns]
+# if df_filter_str and df_filter_str != '':
+#     # mask = df_filtered1.apply(lambda col: col.str.contains(df_filter_str, na=False)).any(axis=1)
+#     mask = df_filtered1.select_dtypes(include=['object']).apply(
+#             lambda col: col.str.contains(df_filter_str, na=False)
+#         ).any(axis=1)
+#     df_filtered2 = df_filtered1[mask]
+# else: df_filtered2 = df_filtered1
 
-columns_config = {
-    '#': st.column_config.Column('#', width=10),
-    'info': st.column_config.Column('info', width='medium'),
-    'FECHA_INI': st.column_config.DatetimeColumn('FECHA_INI', format="YYYY-MM-DD", width='small'),
-    'FECHA_FIN': st.column_config.DatetimeColumn('FECHA_FIN', format="YYYY-MM-DD", width='small'),
-}
-for c in Causas:
-    columns_config[c.name] = st.column_config.Column(c.name, width=10, help=c.value)
+# columns_config = {
+#     '#': st.column_config.Column('#', width=10),
+#     'info': st.column_config.Column('info', width='medium'),
+#     'FECHA_INI': st.column_config.DatetimeColumn('FECHA_INI', format="YYYY-MM-DD", width='small'),
+#     'FECHA_FIN': st.column_config.DatetimeColumn('FECHA_FIN', format="YYYY-MM-DD", width='small'),
+#     # 'total_acciones': st.column_config.
+# }
+# for c in Causas:
+#     columns_config[c.name] = st.column_config.Column(c.name, width=10, help=c.value)
 
-dataframe = st.dataframe(
-    df_filtered2,
-    hide_index=True,
-    width='stretch',
-    selection_mode='single-row',
-    on_select='rerun',
-    height=df_height,
-    column_config=columns_config
-)
+# ## DATAFRAME PEDIDOS
+# df_pedido = st.dataframe(
+#     df_filtered2,
+#     hide_index=True,
+#     width='stretch',
+#     selection_mode='single-row',
+#     on_select='rerun',
+#     height=df_height,
+#     column_config=columns_config
+# )
 
-df_iloc = dataframe.selection['rows'][0] if dataframe.selection['rows'] != [] else None
+# df_iloc = df_pedido.selection['rows'][0] if df_pedido.selection['rows'] != [] else None
 
-if df_iloc is not None:
-    pedido = df['id'].iloc[df_iloc]
-    info = df['info'].iloc[df_iloc]
-    fecha_ini = datetime.fromtimestamp(df['fecha_ini'].iloc[df_iloc])
-    fecha_fin = datetime.fromtimestamp(df['fecha_fin'].iloc[df_iloc])
-    db_data: dict = df['DB'].iloc[df_iloc]
-    xlsx_data = db_data.get('xlsx')
+df_iloc = tbl_pedidos()
 
-    tab_portada, tab_seguimiento, tab_pdca, tab_xlsx  = st.tabs(['PORTADA', 'SEGUIMIENTO', 'PLAN DE ACCION', 'XLSX DATA'])
+# if df_iloc is not None:
+#     if col_tbl_2.button('EDITAR PEDIDO', icon='✏️', width='stretch'):
+#         edit_pedido(df.iloc[df_iloc].to_dict())
+#     pedido = df['id'].iloc[df_iloc]
+#     info = df['info'].iloc[df_iloc]
+#     fecha_ini = datetime.fromtimestamp(df['fecha_ini'].iloc[df_iloc])
+#     fecha_fin = datetime.fromtimestamp(df['fecha_fin'].iloc[df_iloc])
+#     db_data: dict = df['DB'].iloc[df_iloc]
+#     xlsx_data = db_data.get('xlsx')
 
-    with tab_portada:
-        time_data = {
-            'events': [
-                {
-                    'start_date': {"year": fecha_ini.year, "month": fecha_ini.month, "day": fecha_ini.day},
-                    'end_date': {"year": fecha_fin.year, "month": fecha_fin.month, "day": fecha_fin.day},
-                    'text': {'headline': pedido, 'text': info}
-                }
-            ]
-        }
+#     tab_portada, tab_seguimiento, tab_pdca, tab_xlsx  = st.tabs(['PORTADA', 'SEGUIMIENTO', 'PLAN DE ACCION', 'XLSX DATA'])
 
-        timeline(data=time_data)
-
-        # # CSS para ocultar el encabezado de Streamlit (y filas de menú)
-        # hide_style = """
-        # <style>
-        # header {visibility: hidden;}
-        # #MainMenu {visibility: hidden;}
-        # </style>
-        # """
-
-        # st.markdown(hide_style, unsafe_allow_html=True)
-        # timeline(json.dumps(time_data))
-
-    # with tab_seguimiento:
-    #     pass
-
-    with tab_pdca:
-        col_pdca_opt, _, col_pdca_new = st.columns(3)
-        with col_pdca_opt.popover('PDCA OPTIONS', icon='🔧', width='stretch'):
-            pass
-
-        if col_pdca_new.button('AÑADIR PDCA', width='stretch', icon='➕'):
-            add_pdca(pedido)
-        # with st.container(border=True):
-        #     col_alert, col_department, col_user = st.columns(3)
-        #     set_alert = col_alert.radio('SET ALERT', options=["🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=True)
-        #     col_department.selectbox('DEPARTAMENTO', options=['DEPA1','DEPA2','DEPA3','DEPA4',], index=None, accept_new_options=False)
-        #     col_user.selectbox('RESPONSABLE', options=['DEPA1_USER','DEPA2_USER','DEPA3_USER','DEPA4_USER',], index=None, accept_new_options=False)
-            
-        #     set_problem = st.text_area('ASUNTO / PROBLEMA', value='', width='stretch') # height=1, 
-        #     set_action = st.text_area('ACCIÓN', value='', height=1, width='stretch')
-        #     set_date = st.date_input('FECHA REQUERIDA', min_value=datetime.now().date(), value=None)
-        #     st.file_uploader('INSERT FILE (PHOTO/PDF/etc)')
-        #     # st.camera_input('INSERT PHOTO')
-
-        #     st.container(border=False, height=20)
-        #     if st.button('UPDATE DATA', icon='🔄️', width='stretch'):
-        #         # color_indx = list(colores.values()).index(set_alert)+1
-        #         color_indx = list(Alarmas.id_by_color()).index(set_alert)+1
-        #         DB.update('pedidos', values={'alerta': color_indx}, where={'id': pedido})
-        #         st.session_state.pedidos += 1
-        #         st.rerun()
-        df_acciones = get_acciones(pedido)
-
-        st.dataframe(
-            df_acciones[['#', 'pedido_id', 'causa', 'info', 'accion', 'fecha', '🏁']],
-            width='stretch', hide_index=True, selection_mode='single-row', on_select='rerun',
-            column_config={
-                '#': st.column_config.Column('#', width=10),
-                'fecha': st.column_config.DatetimeColumn('fecha', format="YYYY-MM-DD", width='small'),
-                '🏁': st.column_config.CheckboxColumn('🏁', width='small'),
-            }
-        )
-
-    with tab_xlsx:
-        st.dataframe(xlsx_data)
-
-# if ck_timeline: st_timeline(dataframe=df)
-
-
-
-## UPDATE
-## ____________________________________________________________________________________________________________________________________________________________________
-
-# st.container(border=False, height=20)
-
-# with st.expander('UPDATE DATA', expanded=False, icon='🧷'):
-
-#     xlsx_file = st.file_uploader(
-#         f'AÑADE EL FICHERO "{file_name}"',
-#         accept_multiple_files=False,
-#         label_visibility='visible',
-#         type=['xlsx']
-#     )
-
-#     if xlsx_file:
-#         if xlsx_file.name != file_name:
-#             st.warning(f'⚠️ USA EL FICHERO: {file_name}')
-#         else:
-#             if st.button('UPDATE', icon="🔄️", use_container_width=True):
-#                 with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-#                     tmp.write(xlsx_file.read())
-#                     tmp_path = tmp.name
-#                 update(tmp_path)
-#                 # st.success(f'DATOS ACTUALIZADOS: {datetime.now()}')
-
-# if ck_update: st_update()
-
-
-## TIME LINE
-
-# time_data = {'events': []}
-# for iloc in range(len(df)):
-#     pedido = df['id'].iloc[iloc]
-#     info = df['info'].iloc[iloc]
-#     fecha_ini = datetime.fromtimestamp(df['fecha_ini'].iloc[iloc])
-#     fecha_fin = datetime.fromtimestamp(df['fecha_fin'].iloc[iloc])
-
-#     time_data['events'].append(
-#         {
-#             'start_date': {"year": fecha_ini.year, "month": fecha_ini.month, "day": fecha_ini.day},
-#             'end_date': {"year": fecha_fin.year, "month": fecha_fin.month, "day": fecha_fin.day},
-#             'text': {'headline': pedido, 'text': info}
+#     with tab_portada:
+#         time_data = {
+#             # 'title': {
+#             #     'caption': 'POLLA'
+#             # },
+#             'events': [
+#                 {
+#                     'start_date': {"year": fecha_ini.year, "month": fecha_ini.month, "day": fecha_ini.day},
+#                     'end_date': {"year": fecha_fin.year, "month": fecha_fin.month, "day": fecha_fin.day},
+#                     'text': {'headline': pedido, 'text': info + '\n' + html_table},
+#                     'media': {
+#                         'url': r'https://xtb.scdn5.secure.raxcdn.com/default/0103/99/screenshot-2025-02-05-130401.png',
+#                         # 'caption': 'la caption'
+#                     },
+#                     # 'style': 'background-color: #ffcc00; color: black;'  # amarillo
+#                     # 'style': 'background-color: #00ccff; color: white;'  # azul
+#                     'style': 'background-color: #009933; color: white;'  # verde
+#                 }
+#             ]
 #         }
-#     )
+#         with st.container(border=True): 
+#             timeline(time_data)
 
-# timeline(data=time_data)
+#     # with tab_seguimiento:
+#     #     pass
+
+#     with tab_pdca:
+#         col_pdca_opt, col_pdca_detalle, col_pdca_new = st.columns(3)
+#         with col_pdca_opt.popover('PDCA OPTIONS', icon='🔧', width='stretch'):
+#             pass
+
+#         if col_pdca_new.button('AÑADIR ACCION', width='stretch', icon='➕'):
+#             form_accion(pedido)
+
+#         df_acciones = get_acciones(pedido)
+
+#         df_accion = st.dataframe(
+#             df_acciones[['#', 'causa', 'info', 'accion', 'fecha_accion', 'fecha_req', 'estado']], #  'pedido_id', '🏁'
+#             width='stretch', hide_index=True, selection_mode='single-row', on_select='rerun',
+#             column_config={
+#                 '#': st.column_config.Column('#', width=10),
+#                 'info': st.column_config.Column('info', width=30),
+#                 'accion': st.column_config.Column('accion', width=30),
+#                 'fecha_accion': st.column_config.DatetimeColumn('fecha_accion', format="YYYY-MM-DD", width='small'),
+#                 'fecha_req': st.column_config.DatetimeColumn('fecha_req', format="YYYY-MM-DD", width='small'),
+#                 # '🏁': st.column_config.CheckboxColumn('🏁', width='small'),
+#             }
+#         )
+
+#         ## ACCIONES
+#         iloc_accion = df_accion.selection['rows'][0] if df_accion.selection['rows'] != [] else None
+#         if iloc_accion is not None:
+#             # if col_pdca_detalle.button('DETALLE', width='stretch', icon='🔍'):
+#             #     detalle_accion(df_acciones.iloc[iloc_accion])
+#             # st.text_area('INFO', value='', width='stretch', ed)
+#             with st.container(border=True):
+#                 col_accion1, col_accion2 = st.columns(2)
+#                 with col_accion1:
+#                     causa = df_acciones['causa'].iloc[iloc_accion]
+#                     st.write('CAUSA:')
+#                     st.caption(Causas[causa].value, width='stretch')
+#                     # st.text_area('INFO', value=df_acciones['info'].iloc[iloc_accion], width='stretch', height=1, disabled=True)
+#                 with col_accion2:
+#                     st.write('ESTADO:')
+#                     estado_id = df_acciones['estado_id'].iloc[iloc_accion]
+#                     st.write(Estados.id_by_estado()[estado_id], Estados.get_estados()[estado_id-1])
+#                     # st.text_area('accion', value=df_acciones['accion'].iloc[iloc_accion], width='stretch', height=1, disabled=True)
+                
+#                 st.write('INFO:')
+#                 st.caption(df_acciones['info'].iloc[iloc_accion], width='stretch')
+#                 st.write('ACCION:')
+#                 st.caption(df_acciones['accion'].iloc[iloc_accion], width='stretch')
+
+
+#     with tab_xlsx:
+#         st.dataframe(xlsx_data)

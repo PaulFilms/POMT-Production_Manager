@@ -60,6 +60,19 @@ import matplotlib.pyplot as plt
 
 st.logo(r'assets\logo_extend.svg', size='large')
 
+
+a, b = st.columns(2)
+c, d = st.columns(2)
+
+a.metric("Temperature", "30°F", "-9°F", border=True)
+b.metric("Wind", "4 mph", "2 mph", border=True)
+
+c.metric("Humidity", "77%", "5%", border=True)
+d.metric("Pressure", "30.34 inHg", "-2 inHg", border=True)
+
+## 
+## ____________________________________________________________________________________________________________________________________________________________________
+
 # Crear datos para dos años con detalle mensual
 dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq='MS')  # primer día de cada mes
 phones = [f"Hito {i+1}" for i in range(len(dates))]
@@ -184,3 +197,4 @@ st.pyplot(fig)
 # )
 
 # st.plotly_chart(fig, use_container_width=True)
+
