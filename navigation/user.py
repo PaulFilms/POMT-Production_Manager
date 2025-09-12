@@ -8,7 +8,7 @@ estados = [f'{e.value[0]} {e.name}' for e in Estados]
 
 col_estado, col_bunit = st.columns(2)
 
-tab_pedido, = st.tabs(['PEDIDOS'])
+tab_pedido, = st.tabs(['GPI'])
 
 with tab_pedido:
     # col_estado, col_bunit = st.columns(2)

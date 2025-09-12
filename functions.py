@@ -1,11 +1,16 @@
 import json
+# from typing import TypedDict
 from enum import Enum
+from dataclasses import dataclass, asdict
 import pandas as pd
 from mysqlite import *
 from supabase import create_client, Client
 from supabase.client import ClientOptions
 import streamlit as st
-
+import plotly.graph_objects as go
+import plotly.express as px
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 ## DB
@@ -74,6 +79,15 @@ class Estados(Enum):
     completo = ('✅', 4)
 
     @classmethod
+    def get_estado(cls, estado: int) -> str:
+        if not isinstance(estado, int):
+            return None
+        if estado not in [e.value[1] for e in cls]:
+            return None
+        else:
+            return [e.value[0] for e in cls][estado-1]
+
+    @classmethod
     def get_estados(cls) -> List[str]:
         return [e.name for e in cls]
 
@@ -130,9 +144,25 @@ def safe_json_loads(x):
     except json.JSONDecodeError:
         return {}  # Manejo en caso que el json esté mal formado
 
+def safe_datetime(value) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    elif isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value)
+    elif isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    elif isinstance(value, str):
+        try:
+            return datetime.strptime(value, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError(f"No se pudo parsear la fecha string: {value}")
+    else:
+        raise TypeError(f"Tipo no soportado para conversión a datetime: {type(value)}")
+
 def safe_fromtimestamp(x):
     if x is None or pd.isna(x):
-        return pd.NaT  # Valor nulo para fechas en pandas
+        # return pd.NaT  # Valor nulo para fechas en pandas
+        return None  # Valor nulo para fechas en pandas
     else:
         return datetime.fromtimestamp(x)
 
@@ -238,6 +268,7 @@ def get_acciones(pedido_id: str) -> 'pd.DataFrame':
     # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
+    df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
 # @st.cache_data
@@ -249,3 +280,189 @@ def get_productos(count: int = 0):
     data = DB.select(f'SELECT * FROM productos;')
     df = pd.DataFrame(data, columns=headers)
     return df
+
+
+
+
+class UI:
+    def generar_card(titulo, contenido):
+        return f"""
+        <div style="
+            background: linear-gradient(90deg, #ddd, #aaa);
+            background-color:#fff; 
+            border-radius:20px; 
+            box-shadow:0 2px 8px rgba(0,0,0,0.1); 
+            padding:20px; margin:12px 0; 
+            max-width:600px; 
+            font-family: Neo Sans, sans-serif; 
+            line-height:1.5;
+        ">
+        <div style="font-weight:bold; margin-bottom:8px; font-size:18px; color:#333;">
+            {titulo}
+        </div>
+        <div style="font-size:14px; color:#555; white-space: normal; margin: 0; padding: 0;">
+            {contenido}
+        </div>
+        </div>
+        """
+
+    @dataclass
+    class Timeline:
+        hito: str
+        fecha_ini: datetime
+        fecha_fin: datetime
+        texto: str
+        color: int # 🟥 1 / 🟨 2 / 🟩 3
+
+        @staticmethod
+        def color_map() -> dict:
+            return {
+                1: "red",
+                2: "orange",
+                3: "green"
+            }
+        
+        def to_dict(self):
+            return asdict(self)
+
+    def my_timeline(df: pd.DataFrame):
+
+        # df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
+        # df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
+
+        # Convertir fechas a números para eje X
+        df["start_num"] = df["fecha_ini"].map(datetime.toordinal)
+        df["end_num"] = df["fecha_fin"].map(datetime.toordinal)
+        df["duracion"] = df["end_num"] - df["start_num"]
+
+        # Preparar gráfico Gantt con barras horizontales (go.Bar)
+        fig = go.Figure()
+
+        for idx, row in df.iterrows():
+            color = UI.Timeline.color_map().get(row['color'], "gray")
+            fig.add_trace(go.Bar(
+                x=[row["duracion"]],
+                y=[row["hito"]],
+                base=row["start_num"],
+                orientation='h',
+                name=row["hito"],
+                text=[row["texto"]],
+                textposition='inside',
+                insidetextanchor='start',
+                textfont=dict(color='white', size=12, family="Neo Sans, Arial, sans-serif",),
+                # marker_color=px.colors.qualitative.Set3[idx % len(px.colors.qualitative.Set3)],
+                marker_color=color,
+                hovertemplate=(
+                    f"{row['hito']}<br>Inicio: {row['fecha_ini'].date()}<br>Fin: {row['fecha_fin'].date()}"
+                    "<extra></extra>"
+                ),
+                showlegend=False,
+            ))
+
+        # Línea vertical "Hoy" en número ordinal
+        hoy_num = datetime.today().toordinal()
+        fig.add_vline(
+            x=hoy_num,
+            line_dash="dash",
+            line_color="blue",
+            annotation_text=" HOY",
+            annotation_position="top right",
+            opacity=0.8,
+        )
+
+
+        # Suponiendo que tienes un rango de fechas:
+        min_fecha = df["fecha_ini"].min().replace(day=1)
+        max_fecha = df["fecha_fin"].max().replace(day=1)
+
+        # Generar lista de meses entre min y max:
+        meses = pd.date_range(min_fecha, max_fecha, freq='MS')  # MS = Month Start
+
+        # Convertir a ordinal (para ticks en x):
+        ticks = [d.toordinal() for d in meses]
+        ticks_text = [d.strftime('%Y-%m') for d in meses]
+
+        # Ajustar ejes para mostrar fechas legibles
+        fig.update_xaxes(
+            tickmode='array',
+            tickvals=ticks,
+            # ticktext=ticks_text,
+            # tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
+            ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
+
+            # title="Mes",
+            rangeslider_visible=True,
+        )
+
+        # fig.update_xaxes(
+        #     tickmode="array",
+        #     tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
+        #     ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
+        #     # title="Fecha (Semanas)",
+        #     rangeslider_visible=True,
+        # )
+
+        fig.update_yaxes(
+            autorange="reversed", 
+            # title="Hitos"
+        )
+
+        fig.update_layout(
+            height=500,
+            margin=dict(l=150, r=30, t=50, b=30),
+            # title="Diagrama de Gantt con línea de hoy",
+            barmode='stack',
+        )
+
+        plt = st.plotly_chart(fig, use_container_width=True, on_select='rerun')
+        # st.write(plt)
+
+    def my_hitoline(df: pd.DataFrame, hito_col: str = "hito", fecha_col: str = "fecha"):
+        # Asegurarse que la columna de fecha sea datetime
+        df[fecha_col] = pd.to_datetime(df[fecha_col])
+
+        # Ordenar dataframe por fecha
+        df = df.sort_values(by=fecha_col).reset_index(drop=True)
+        
+        # Crear niveles alternos para flechas arriba/abajo
+        df["Level"] = [np.random.randint(-6,-2) if i % 2 == 0 else np.random.randint(2,6) for i in range(len(df))]
+
+        with plt.style.context("fivethirtyeight"):
+            fig, ax = plt.subplots(figsize=(18, 6))
+
+            ax.plot(df[fecha_col], [0]*len(df), "-o", color="black", markerfacecolor="white")
+
+            # Ticks con formato mes-año
+            ax.set_xticks(df[fecha_col])
+            ax.set_xticklabels(df[fecha_col].dt.strftime('%b-%Y'), rotation=45, ha="right")
+
+            ax.set_ylim(-7, 7)
+
+            for idx in range(len(df)):
+                dt, hito, level = df[fecha_col].iloc[idx], df[hito_col].iloc[idx], df["Level"].iloc[idx]
+                dt_str = dt.strftime("%b-%Y")
+                ax.annotate(dt_str + "\n" + hito, xy=(dt, 0.1 if level > 0 else -0.1), xytext=(dt, level),
+                            arrowprops=dict(arrowstyle="-", color="red", linewidth=0.8),
+                            ha="center")
+
+            ax.spines[["left", "top", "right", "bottom"]].set_visible(False)
+            ax.spines[["bottom"]].set_position(("axes", 0.5))
+            ax.xaxis.set_visible(False)
+            ax.yaxis.set_visible(False)
+            ax.set_title("Timeline Detallado", pad=10, loc="left", fontsize=20, fontweight="bold")
+            ax.grid(False)
+
+        st.pyplot(fig)
+
+'''
+<div style="width: 100%; font-family: Neo Sans, Neo Sans;padding:20px; margin:12px 0; ">
+    <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
+        <b>PLANIFICADOR: </b> {fila['planificador']}<br>
+        <b>RESPONSABLE: </b> {fila['responsable']}
+    </div>
+    <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
+        <b>ACCION ID:</b> {fila['id']}<br>
+        <b>PEDIDO ID:</b> {fila['pedido_id']}
+    </div>
+</div>
+'''

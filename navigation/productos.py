@@ -1,6 +1,7 @@
 
 import streamlit as st
 from functions import *
+import pandas as pd
 
 session_state_start()
 
@@ -52,3 +53,59 @@ if df_iloc is not None:
     sub_products = producto_db.get('productos_id')
 
     st.write(sub_products)
+
+
+# Lista de semanas
+semanas = list(range(1, 13))  # Puedes ajustar a 52 semanas si quieres
+
+# Lista de hitos
+hitos = ['Inicio Proyecto', 'Fase de Diseño', 'Desarrollo', 'Pruebas', 'Entrega']
+
+# Crear DataFrame vacío
+df = pd.DataFrame('', index=hitos, columns=semanas)
+
+# Definir en qué semanas ocurre cada hito (rellenar con "X" o algo similar)
+timeline_data = {
+    'Inicio Proyecto': [1, 2],
+    'Fase de Diseño': [3, 4, 5],
+    'Desarrollo': [6, 7, 8],
+    'Pruebas': [9, 10],
+    'Entrega': [11, 12]
+}
+
+# Rellenar el DataFrame con marca para cada semana activa
+for hito, semanas_activas in timeline_data.items():
+    for semana in semanas_activas:
+        df.at[hito, semana] = '●'
+
+# Función para aplicar color a las celdas con '●'
+def color_cells(val):
+    color = 'background-color: lightgreen' if val == '●' else ''
+    return color
+
+# Mostrar el timeline estilizado
+st.title("Timeline del Proyecto")
+
+st.dataframe(
+    df.style.map(color_cells), 
+    height=300, 
+    width='stretch'
+)
+
+semanas = [1, 2, 3, 4, 5, 6, 7, 8]
+
+d = {
+    'AÑO': [2025, None, None, None, None, None, None, None],
+    'MES': [1, None, None, None, 2, None, None, None,],
+    'LM': [1, 1, None, None, None, None, None, None,],
+    'DT': [None, None, 1, 1, None, None, None, None,],
+}
+
+st.dataframe(
+    pd.DataFrame(
+        d, 
+        index=d.keys(),
+        columns=semanas
+    ),
+    # hide_index=True
+)
