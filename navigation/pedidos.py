@@ -16,6 +16,7 @@ from functions import *
 
 session_state_start()
 
+
 ## TOOLS
 ## ____________________________________________________________________________________________________________________________________________________________________
 
@@ -377,7 +378,10 @@ def get_portadas(**kwargs):
         # headline = f'{fila['#']} {fila['estado']} {fila['causa']} | {fila['accion']}'
 
         fecha_ini: datetime = fila['fecha_accion']
-        fecha_fin: datetime = fila['fecha_req']
+        if fila['fecha_req'] == None:
+            fecha_fin = datetime.now()
+        else:
+            fecha_fin: datetime = fila['fecha_req']
 
         headline = str()
         if fila['#']: headline += f'{fila['#']}'
@@ -436,62 +440,7 @@ def bi_pedidos():
     col4.metric("LISTA MATERIALES", "25%", "+30 días", border=True)
 
     data = []
-    
 
-html_table = """
-<p>&nbsp;</p>
-<p>ALARMA GPI: 🟥</p>
-<p>&nbsp;</p>
-<table style="width:100%; border-collapse: collapse;" border="1">
-    <tbody>
-    <tr style="background-color:#f2f2f2;">
-    <td>ACCIONES</td>
-    <td>ALARMA</td>
-    <td>FECHA</td>
-    </tr>
-    <tr>
-    <td>accion1</td>
-    <td>🟥</td>
-    <td>2028-03-03</td>
-    </tr>
-    <tr>
-    <td>accion2</td>
-    <td>🟩</td>
-    <td>2028-03-03</td>
-    </tr>
-    <tr>
-    <td>accion3</td>
-    <td>🟨</td>
-    <td>2028-03-03</td>
-    </tr>
-    </tbody>
-</table>
-<p>&nbsp;</p>
-<table style="width:100%; border-collapse: collapse;" border="1">
-    <tbody>
-    <tr style="background-color:#f2f2f2;">
-    <td>HITOS</td>
-    <td>ALARMA</td>
-    <td>FECHA</td>
-    </tr>
-    <tr>
-    <td>hito1</td>
-    <td>🟥</td>
-    <td>2028-03-03</td>
-    </tr>
-    <tr>
-    <td>hito2</td>
-    <td>🟩</td>
-    <td>2028-03-03</td>
-    </tr>
-    <tr>
-    <td>hito3</td>
-    <td>🟨</td>
-    <td>2028-03-03</td>
-    </tr>
-    </tbody>
-</table>
-"""
 
 
 ## PAGE
@@ -561,11 +510,6 @@ if pedido:
         df_gantt = pd.DataFrame(data)
         with st.container(border=True): UI.my_timeline(df_gantt)
         # UI.my_hitoline(df_gantt)
-        df = pd.DataFrame({
-            "hito": ["Mi cumple", "Evento 1", "Evento 2"],
-            "fecha": pd.to_datetime(["2000-01-01", "2001-05-20", "2002-11-15"])
-        })
-        st.write(df)
         
         fechas_xlsx = [
             'Fecha aceptación',
@@ -586,7 +530,6 @@ if pedido:
         # st.write(df_fechas)
         # print(df_fechas.info())
         UI.my_hitoline(df_fechas)
-
 
     with tab_portada:
         get_portadas(pedido=pedido, info=info, df_acciones=df_acciones)
@@ -616,6 +559,9 @@ if pedido:
                 # st.write('ACCION:')
                 # st.caption(df_acciones['accion'].iloc[accion_iloc], width='stretch')
 
-
     with tab_xlsx:
-        st.dataframe(xlsx_data)
+        df_xlsx = pd.DataFrame(
+            [(k, str(v) if v is not None else "") for k, v in xlsx_data.items()],
+            columns=["key", "value"]
+        )
+        st.write(df_xlsx)

@@ -1,5 +1,6 @@
 import json
 # from typing import TypedDict
+from datetime import datetime, timedelta
 from enum import Enum
 from dataclasses import dataclass, asdict
 import pandas as pd
@@ -145,7 +146,9 @@ def safe_json_loads(x):
         return {}  # Manejo en caso que el json esté mal formado
 
 def safe_datetime(value) -> datetime:
-    if isinstance(value, datetime):
+    if value == None:
+        return None
+    elif isinstance(value, datetime):
         return value
     elif isinstance(value, (int, float)):
         return datetime.fromtimestamp(value)
@@ -326,7 +329,6 @@ class UI:
             return asdict(self)
 
     def my_timeline(df: pd.DataFrame):
-
         # df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
         # df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
 
@@ -365,8 +367,8 @@ class UI:
             x=hoy_num,
             line_dash="dash",
             line_color="blue",
-            annotation_text=" HOY",
-            annotation_position="top right",
+            # annotation_text=" HOY",
+            # annotation_position="top right",
             opacity=0.8,
         )
 
@@ -378,21 +380,32 @@ class UI:
         # Generar lista de meses entre min y max:
         meses = pd.date_range(min_fecha, max_fecha, freq='MS')  # MS = Month Start
 
-        # Convertir a ordinal (para ticks en x):
         ticks = [d.toordinal() for d in meses]
-        ticks_text = [d.strftime('%Y-%m') for d in meses]
+        # ticks_text = [d.strftime('%b %Y') for d in meses]  # Ej: Sep 2025
+        ticks_text = [d.strftime('%m.%Y') for d in meses]  # Ej: Sep 2025
 
-        # Ajustar ejes para mostrar fechas legibles
         fig.update_xaxes(
             tickmode='array',
             tickvals=ticks,
-            # ticktext=ticks_text,
-            # tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
-            ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
-
-            # title="Mes",
+            ticktext=ticks_text,
             rangeslider_visible=True,
         )
+
+        # # Convertir a ordinal (para ticks en x):
+        # ticks = [d.toordinal() for d in meses]
+        # ticks_text = [d.strftime('%Y-%m') for d in meses]
+
+        # # Ajustar ejes para mostrar fechas legibles
+        # fig.update_xaxes(
+        #     tickmode='array',
+        #     tickvals=ticks,
+        #     # ticktext=ticks_text,
+        #     # tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
+        #     ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
+
+        #     # title="Mes",
+        #     rangeslider_visible=True,
+        # )
 
         # fig.update_xaxes(
         #     tickmode="array",
@@ -423,38 +436,59 @@ class UI:
 
         # Ordenar dataframe por fecha
         df = df.sort_values(by=fecha_col).reset_index(drop=True)
-        
-        # Crear niveles alternos para flechas arriba/abajo
-        df["Level"] = [np.random.randint(-6,-2) if i % 2 == 0 else np.random.randint(2,6) for i in range(len(df))]
+
+        # Alternar niveles fijos para alineación visual clara
+        level_up = 3
+        level_down = -3
+        df["Level"] = [level_up if i % 2 == 0 else level_down for i in range(len(df))]
+        df['position'] = [df[fecha_col].min() + timedelta(days=d) for d in range(len(df))]
 
         with plt.style.context("fivethirtyeight"):
             fig, ax = plt.subplots(figsize=(18, 6))
 
-            ax.plot(df[fecha_col], [0]*len(df), "-o", color="black", markerfacecolor="white")
+            # Línea base del tiempo
+            # ax.plot(df[fecha_col], [0] * len(df), "-o", color="black", markerfacecolor="white")
+            ax.plot(df['position'], [0] * len(df), "-o", color="black", markerfacecolor="white")
 
-            # Ticks con formato mes-año
-            ax.set_xticks(df[fecha_col])
-            ax.set_xticklabels(df[fecha_col].dt.strftime('%b-%Y'), rotation=45, ha="right")
-
+            # Etiquetas del eje x no necesarias
+            ax.set_xticks([])
+            ax.set_yticks([])
+            # ax.set_ylim(-5, 5)
             ax.set_ylim(-7, 7)
 
+            # Anotaciones
             for idx in range(len(df)):
-                dt, hito, level = df[fecha_col].iloc[idx], df[hito_col].iloc[idx], df["Level"].iloc[idx]
-                dt_str = dt.strftime("%b-%Y")
-                ax.annotate(dt_str + "\n" + hito, xy=(dt, 0.1 if level > 0 else -0.1), xytext=(dt, level),
-                            arrowprops=dict(arrowstyle="-", color="red", linewidth=0.8),
-                            ha="center")
+                # dt = df[fecha_col].iloc[idx]
+                dt = df['position'].iloc[idx]
+                fecha = df[fecha_col].iloc[idx]
+                hito = df[hito_col].iloc[idx]
+                level = df["Level"].iloc[idx]
+                text = f"{hito.upper()}\n{fecha.strftime('%Y-%m-%d')}"
 
+                ax.annotate(
+                    text,
+                    xy=(dt, 0),
+                    xytext=(dt, level),
+                    arrowprops=dict(
+                        arrowstyle="-", 
+                        color="red", 
+                        linewidth=0.8
+                    ),
+                    ha="center",
+                    fontsize=10
+                )
+
+            # Quitar bordes
             ax.spines[["left", "top", "right", "bottom"]].set_visible(False)
-            ax.spines[["bottom"]].set_position(("axes", 0.5))
-            ax.xaxis.set_visible(False)
-            ax.yaxis.set_visible(False)
-            ax.set_title("Timeline Detallado", pad=10, loc="left", fontsize=20, fontweight="bold")
+            ax.spines["bottom"].set_position(("axes", 0.5))
             ax.grid(False)
+
+            # ax.set_title("Timeline Detallado", pad=10, loc="left", fontsize=20, fontweight="bold")
 
         st.pyplot(fig)
 
-'''
+
+html_algo = '''
 <div style="width: 100%; font-family: Neo Sans, Neo Sans;padding:20px; margin:12px 0; ">
     <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
         <b>PLANIFICADOR: </b> {fila['planificador']}<br>
@@ -466,3 +500,58 @@ class UI:
     </div>
 </div>
 '''
+
+html_table = """
+<p>&nbsp;</p>
+<p>ALARMA GPI: 🟥</p>
+<p>&nbsp;</p>
+<table style="width:100%; border-collapse: collapse;" border="1">
+    <tbody>
+    <tr style="background-color:#f2f2f2;">
+    <td>ACCIONES</td>
+    <td>ALARMA</td>
+    <td>FECHA</td>
+    </tr>
+    <tr>
+    <td>accion1</td>
+    <td>🟥</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>accion2</td>
+    <td>🟩</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>accion3</td>
+    <td>🟨</td>
+    <td>2028-03-03</td>
+    </tr>
+    </tbody>
+</table>
+<p>&nbsp;</p>
+<table style="width:100%; border-collapse: collapse;" border="1">
+    <tbody>
+    <tr style="background-color:#f2f2f2;">
+    <td>HITOS</td>
+    <td>ALARMA</td>
+    <td>FECHA</td>
+    </tr>
+    <tr>
+    <td>hito1</td>
+    <td>🟥</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>hito2</td>
+    <td>🟩</td>
+    <td>2028-03-03</td>
+    </tr>
+    <tr>
+    <td>hito3</td>
+    <td>🟨</td>
+    <td>2028-03-03</td>
+    </tr>
+    </tbody>
+</table>
+"""

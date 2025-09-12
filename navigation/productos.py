@@ -84,28 +84,13 @@ def color_cells(val):
     return color
 
 # Mostrar el timeline estilizado
-st.title("Timeline del Proyecto")
+# st.title("Timeline del Proyecto")
 
 st.dataframe(
     df.style.map(color_cells), 
-    height=300, 
+    # height=300, 
     width='stretch'
 )
 
 semanas = [1, 2, 3, 4, 5, 6, 7, 8]
 
-d = {
-    'AÑO': [2025, None, None, None, None, None, None, None],
-    'MES': [1, None, None, None, 2, None, None, None,],
-    'LM': [1, 1, None, None, None, None, None, None,],
-    'DT': [None, None, 1, 1, None, None, None, None,],
-}
-
-st.dataframe(
-    pd.DataFrame(
-        d, 
-        index=d.keys(),
-        columns=semanas
-    ),
-    # hide_index=True
-)
