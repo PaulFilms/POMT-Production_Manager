@@ -1,0 +1,13 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- Fondo verde típico de Excel -->
+  <rect width="64" height="64" rx="8" ry="8" fill="#217346"/>
+  
+  <!-- Página blanca -->
+  <rect x="12" y="8" width="40" height="48" rx="4" ry="4" fill="#fff"/>
+  
+  <!-- Esquinas dobladas -->
+  <path d="M12 8h12v12" stroke="#217346" stroke-width="2" fill="none"/>
+  
+  <!-- Letras XLSX -->
+  <text x="32" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#217346" font-weight="bold">XLSX</text>
+</svg>

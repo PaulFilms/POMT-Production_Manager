@@ -4,6 +4,7 @@ from mysqlite import SQL
 from streamlit_timeline import timeline # https://pypi.org/project/streamlit-timeline/
 
 import streamlit as st
+from app import session_state_start
 from functions import *
 
 session_state_start()

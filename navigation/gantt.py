@@ -168,14 +168,15 @@ st.title("📊 DIAGRAMA DE GANTT")
 # ]
 
 data = [
-    UI.Timeline(hito='PEDIDO', fecha_ini=datetime(2025, 1, 1), fecha_fin=datetime(2026, 1, 1), texto='PEDIDO XXXX', color=1),
-    UI.Timeline(hito='HITOS', fecha_ini=datetime(2025, 1, 1), fecha_fin=datetime(2025, 3, 1), texto='HITO1', color=2),
-    UI.Timeline(hito='HITOS', fecha_ini=datetime(2025, 3, 1), fecha_fin=datetime(2025, 6, 1), texto=None, color=3),
-    UI.Timeline(hito='HITOS', fecha_ini=datetime(2025, 6, 1), fecha_fin=datetime(2025, 7, 1), texto='HITO3', color=None),
-    UI.Timeline(hito='Evento 1', fecha_ini=datetime(2025, 3, 1), fecha_fin=datetime(2025, 7, 1), texto='Evento 1', color=3),
-    UI.Timeline(hito='Evento 2', fecha_ini=datetime(2025, 2, 1), fecha_fin=datetime(2025, 8, 1), texto='Evento 2', color=2),
+    UI.Timeline(grupo='PEDIDO', fecha_ini=datetime(2025, 1, 1), fecha_fin=datetime(2026, 1, 1), texto='PEDIDO XXXX', color=1),
+    UI.Timeline(grupo='HITOS',fecha_ini=datetime(2025, 1, 1), fecha_fin=datetime(2025, 3, 1), texto='HITO1', color=2),
+    UI.Timeline(grupo='HITOS', fecha_ini=datetime(2025, 3, 1), fecha_fin=datetime(2025, 6, 1), texto=None, color=3),
+    UI.Timeline(grupo='HITOS', fecha_ini=datetime(2025, 6, 1), fecha_fin=datetime(2025, 7, 1), texto='HITO3', color=None),
+    UI.Timeline(grupo='Evento 1', fecha_ini=datetime(2025, 3, 1), fecha_fin=datetime(2025, 7, 1), texto='Evento 1', color=3),
+    UI.Timeline(grupo='Evento 2', fecha_ini=datetime(2025, 2, 1), fecha_fin=datetime(2025, 8, 1), texto='Evento 2', color=2),
 ]
 
 df = pd.DataFrame(data)
 with st.container(border=True):
-    UI.my_timeline(df)
+    plot = UI.my_timeline(df)
+    st.write(plot)

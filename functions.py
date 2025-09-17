@@ -1,9 +1,10 @@
-import json
+import os, json
 # from typing import TypedDict
 from datetime import datetime, timedelta
 from enum import Enum
 from dataclasses import dataclass, asdict
 import pandas as pd
+from pyreports.xlsx import DF_REPORT
 from mysqlite import *
 from supabase import create_client, Client
 from supabase.client import ClientOptions
@@ -41,6 +42,21 @@ if SUPABASE:
 
 @dataclass
 class Usuario:
+    '''
+    `Args:`
+    - id : str
+    - nombre : str
+    - apellidos : str
+    - mail : str
+    - info : str
+    - password : str
+    - DB : dict
+    - firm : str
+    
+    `Functions:`
+    - get_form_sql -> Usuario
+    - get_form -> str
+    '''
     id: str
     nombre: str
     apellidos: str
@@ -73,6 +89,21 @@ class Alarmas(Enum):
     def colors(cls):
         return [c.value[0] for c in cls]
 
+    @classmethod
+    def get_color(cls, value: int) -> str:
+        if not value:
+            return None
+        if not 0 < value < 4:
+            return None
+        return cls.colors()[value-1]
+    
+    @classmethod
+    def get_int(cls, value: str) -> int:
+        if value not in cls.colors():
+            return None
+        else:
+            return cls.colors().index(value) + 1
+
 class Estados(Enum):
     pendiente = ('⏳', 1)
     revisar = ('🔍', 2)
@@ -104,34 +135,6 @@ class Causas(Enum):
     EM = 'EM  |  ENTREGA MANUFACTURING EN RIESGO'
     CA = 'CA  |  CAMBIO DE ALCANCE'
 
-def session_state_start():
-    if not 'login' in st.session_state: st.session_state.login = None
-    if not 'login_count' in st.session_state: st.session_state.login_count = 1
-    if not 'usuarios' in st.session_state: st.session_state.usuarios = 1
-    if not 'pedidos' in st.session_state: st.session_state.pedidos = 1
-    if not 'bu' in st.session_state: st.session_state.bu = 1
-    if not 'departamentos' in st.session_state: st.session_state.departamentos = 1
-    if not 'action' in st.session_state: st.session_state.action = 1
-    if not 'productos' in st.session_state: st.session_state.productos = 1
-
-@st.dialog('LOGIN', width='small')
-def login():
-    username = st.text_input('Id USUARIO')
-    password = st.text_input('PASSWORD', type='password')
-    st.container(border=False, height=10)
-    if st.button('LOG IN', icon='🙋‍♂️', width='stretch', ): # on_click=lambda: login(username, password)
-        if not username or username == str(): #  or not password or password == str()
-            st.warning('RELLENA LOS DATOS', icon='⚠️')
-        elif DB.execute(f'SELECT COUNT (*) FROM usuarios WHERE id=?;', values=[username.lower()], fetch=1)[0] != 1:
-            st.warning('LOGIN ERROR', icon='⚠️')
-            st.session_state.login_count += 1
-        else:
-            data = DB.execute('SELECT * FROM usuarios WHERE id=?;', values=[username], fetch=1)
-            st.session_state.login = Usuario.get_form_sql(data)
-            st.rerun()
-
-def logout():
-    st.session_state.login = None
 
 
 ## DATA
@@ -169,6 +172,12 @@ def safe_fromtimestamp(x):
     else:
         return datetime.fromtimestamp(x)
 
+def safe_contraseña(x: str) -> str:
+    if not x:
+        return None
+    partes = x.split('/')
+    return f'7218|{partes[0]}_{partes[1]}'
+
 def get_alerta(blob, field: str):
     '''
     Alertas para causas standard
@@ -181,7 +190,6 @@ def get_alerta(blob, field: str):
         return int(val) if val is not None else None
     except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
         return None
-
 
 # @st.cache_data
 def get_departamentos(count: int = 0) -> 'pd.DataFrame':
@@ -237,24 +245,40 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     '''
     st.session_state.pedidos
     '''
-    headers = DB.execute("SELECT * FROM view_pedidos_count LIMIT 0", fetch=4)
-    data = DB.select('SELECT * FROM view_pedidos_count')
+    # headers = DB.execute("SELECT * FROM view_pedidos_count LIMIT 0", fetch=4)
+    # data = DB.select('SELECT * FROM view_pedidos_count')
+    headers = DB.execute("SELECT * FROM pedidos LIMIT 0", fetch=4)
+    data = DB.select('SELECT * FROM pedidos')
 
     df = pd.DataFrame(data, columns=headers)
-    # df['#'] = df['alarma'].map(colores)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    # df['DB'] = df['DB'].apply(json.loads)
     df['DB'] = df['DB'].apply(safe_json_loads)
-    # df['INFO'] = df['DB'].apply(lambda x: x.get('xlsx', {}).get('5@Título de pedido'))
-    # df['FECHA_INI'] = pd.to_datetime(df['DB'].apply(lambda x: x.get('xlsx', {}).get('13@Fecha inicio requerida')))
-    # df['FECHA_FIN'] = pd.to_datetime(df['DB'].apply(lambda x: x.get('xlsx', {}).get('14@Fecha fin requerida')))
-    df['FECHA_INI'] = df['fecha_ini'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
-    df['FECHA_FIN'] = df['fecha_fin'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
-    df['∑'] = df['total_acciones']
-    for c in Causas:
-        # df[c.name] = df['DB'].apply(lambda x: x.get(c.name))
-        df[c.name] = df[c.name].map(Alarmas.id_by_color())
+    # df['FECHA_INI'] = df['fecha_ini'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
+    # df['FECHA_FIN'] = df['fecha_fin'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
+    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
+    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
+    df['contraseña'] = df['contraseña'].apply(safe_contraseña)
+    # df['∑'] = df['total_acciones']
+    # for c in Causas:
+    #     df[c.name] = df[c.name].map(Alarmas.id_by_color())
+    
+    return df
 
+def get_hitos(pedido_id: str) -> 'pd.DataFrame':
+    '''
+    st.session_state.hitos
+    '''
+    headers = DB.execute("SELECT * FROM hitos LIMIT 0;", fetch=4)
+    data = DB.select(f'SELECT * FROM hitos WHERE pedido_id="{pedido_id}";')
+    df = pd.DataFrame(data, columns=headers)
+    df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
+    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
+    df['Δ'] = (df["fecha_fin"] - pd.Timestamp(datetime.today().date())).dt.days
+    # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
+    df['estado_id'] = df['estado']
+    df['estado'] = df['estado'].map(Estados.id_by_estado())
+    df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
 # @st.cache_data
@@ -284,58 +308,59 @@ def get_productos(count: int = 0):
     df = pd.DataFrame(data, columns=headers)
     return df
 
+def report_pedidos():
+    df = get_pedidos(st.session_state.pedidos)
+    df = df.drop(['DB', '∑', '#', 'fecha_ini', 'fecha_fin'], axis=1)
+    path = r'temp\report_pedidos.xlsx'
+    if os.path.exists(path):
+        os.remove(path)
+    DF_REPORT(path=path, dataFrame=df)
+    with open(path, "rb") as f:
+        archivo_bytes = f.read()
+    return archivo_bytes
 
 
 
 class UI:
-    def generar_card(titulo, contenido):
-        return f"""
-        <div style="
-            background: linear-gradient(90deg, #ddd, #aaa);
-            background-color:#fff; 
-            border-radius:20px; 
-            box-shadow:0 2px 8px rgba(0,0,0,0.1); 
-            padding:20px; margin:12px 0; 
-            max-width:600px; 
-            font-family: Neo Sans, sans-serif; 
-            line-height:1.5;
-        ">
-        <div style="font-weight:bold; margin-bottom:8px; font-size:18px; color:#333;">
-            {titulo}
-        </div>
-        <div style="font-size:14px; color:#555; white-space: normal; margin: 0; padding: 0;">
-            {contenido}
-        </div>
-        </div>
-        """
+    def color_cells(value: int):
+        if value > 0:
+            return 'background-color: #d4edda'  # verde claro
+        elif value <= 0:
+            return 'background-color: #f8d7da'  # rojo claro
+        else:
+            return ''
 
     @dataclass
     class Timeline:
-        hito: str
+        texto: str
+        grupo: str 
         fecha_ini: datetime
         fecha_fin: datetime
-        texto: str
-        color: int # 🟥 1 / 🟨 2 / 🟩 3
+        color: int = None # 🟥 1 / 🟨 2 / 🟩 3
 
         @staticmethod
         def color_map() -> dict:
             return {
-                1: "red",
-                2: "orange",
-                3: "green"
+                1: "#F37C7C", # "red",
+                2: "rgb(251,187,33)", # "orange",
+                3: "rgb(91,174,146)", # "green",
             }
         
         def to_dict(self):
             return asdict(self)
 
     def my_timeline(df: pd.DataFrame):
-        # df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
-        # df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
+        # Convertir fechas
+        df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
+        df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
 
         # Convertir fechas a números para eje X
         df["start_num"] = df["fecha_ini"].map(datetime.toordinal)
         df["end_num"] = df["fecha_fin"].map(datetime.toordinal)
         df["duracion"] = df["end_num"] - df["start_num"]
+
+        # Definir columna para agrupar en eje Y
+        df["grupo_final"] = df["grupo"].fillna(df["texto"])
 
         # Preparar gráfico Gantt con barras horizontales (go.Bar)
         fig = go.Figure()
@@ -344,19 +369,20 @@ class UI:
             color = UI.Timeline.color_map().get(row['color'], "gray")
             fig.add_trace(go.Bar(
                 x=[row["duracion"]],
-                y=[row["hito"]],
+                y=[row["grupo_final"]],
                 base=row["start_num"],
                 orientation='h',
-                name=row["hito"],
-                text=[row["texto"]],
-                textposition='inside',
-                insidetextanchor='start',
-                textfont=dict(color='white', size=12, family="Neo Sans, Arial, sans-serif",),
+                # name=row["hito"], # Testo de ayuda
+                name=row["texto"], # Testo de ayuda
+                text=row["texto"], # Texto de la barra
+                textposition='inside', # inside / outside
+                insidetextanchor='end', # start / end
+                textfont=dict(color='white', size=12, family="Neo Sans, Neo Sans, Neo Sans",),
                 # marker_color=px.colors.qualitative.Set3[idx % len(px.colors.qualitative.Set3)],
                 marker_color=color,
                 hovertemplate=(
-                    f"{row['hito']}<br>Inicio: {row['fecha_ini'].date()}<br>Fin: {row['fecha_fin'].date()}"
-                    "<extra></extra>"
+                    f"{row['texto']}<br>INICIO: {row['fecha_ini'].date()}<br>FIN: {row['fecha_fin'].date()}"
+                    f"<extra>{row["grupo_final"]}</extra>"
                 ),
                 showlegend=False,
             ))
@@ -365,13 +391,13 @@ class UI:
         hoy_num = datetime.today().toordinal()
         fig.add_vline(
             x=hoy_num,
-            line_dash="dash",
+            line_dash='solid', # "dash",
             line_color="blue",
             # annotation_text=" HOY",
             # annotation_position="top right",
+            line_width=1,
             opacity=0.8,
         )
-
 
         # Suponiendo que tienes un rango de fechas:
         min_fecha = df["fecha_ini"].min().replace(day=1)
@@ -381,7 +407,6 @@ class UI:
         meses = pd.date_range(min_fecha, max_fecha, freq='MS')  # MS = Month Start
 
         ticks = [d.toordinal() for d in meses]
-        # ticks_text = [d.strftime('%b %Y') for d in meses]  # Ej: Sep 2025
         ticks_text = [d.strftime('%m.%Y') for d in meses]  # Ej: Sep 2025
 
         fig.update_xaxes(
@@ -390,30 +415,6 @@ class UI:
             ticktext=ticks_text,
             rangeslider_visible=True,
         )
-
-        # # Convertir a ordinal (para ticks en x):
-        # ticks = [d.toordinal() for d in meses]
-        # ticks_text = [d.strftime('%Y-%m') for d in meses]
-
-        # # Ajustar ejes para mostrar fechas legibles
-        # fig.update_xaxes(
-        #     tickmode='array',
-        #     tickvals=ticks,
-        #     # ticktext=ticks_text,
-        #     # tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
-        #     ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
-
-        #     # title="Mes",
-        #     rangeslider_visible=True,
-        # )
-
-        # fig.update_xaxes(
-        #     tickmode="array",
-        #     tickvals=[d for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],  # cada semana
-        #     ticktext=[(datetime.fromordinal(d)).strftime("%d %b") for d in range(df["start_num"].min() - 10, df["end_num"].max() + 10, 7)],
-        #     # title="Fecha (Semanas)",
-        #     rangeslider_visible=True,
-        # )
 
         fig.update_yaxes(
             autorange="reversed", 
@@ -427,8 +428,8 @@ class UI:
             barmode='stack',
         )
 
-        plt = st.plotly_chart(fig, use_container_width=True, on_select='rerun')
-        # st.write(plt)
+        plt = st.plotly_chart(fig, use_container_width=True, on_select='rerun', selection_mode='points')
+        return plt
 
     def my_hitoline(df: pd.DataFrame, hito_col: str = "hito", fecha_col: str = "fecha"):
         # Asegurarse que la columna de fecha sea datetime
@@ -487,21 +488,42 @@ class UI:
 
         st.pyplot(fig)
 
-
-html_algo = '''
-<div style="width: 100%; font-family: Neo Sans, Neo Sans;padding:20px; margin:12px 0; ">
-    <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
-        <b>PLANIFICADOR: </b> {fila['planificador']}<br>
-        <b>RESPONSABLE: </b> {fila['responsable']}
+class HTML:
+    def generar_card(titulo, contenido):
+        return f"""
+        <div style="
+            background: linear-gradient(90deg, #ddd, #aaa);
+            background-color:#fff; 
+            border-radius:20px; 
+            box-shadow:0 2px 8px rgba(0,0,0,0.1); 
+            padding:20px; margin:12px 0; 
+            max-width:600px; 
+            font-family: Neo Sans, sans-serif; 
+            line-height:1.5;
+        ">
+        <div style="font-weight:bold; margin-bottom:8px; font-size:18px; color:#333;">
+            {titulo}
+        </div>
+        <div style="font-size:14px; color:#555; white-space: normal; margin: 0; padding: 0;">
+            {contenido}
+        </div>
+        </div>
+        """
+    
+    html_algo = '''
+    <div style="width: 100%; font-family: Neo Sans, Neo Sans;padding:20px; margin:12px 0; ">
+        <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
+            <b>PLANIFICADOR: </b> {fila['planificador']}<br>
+            <b>RESPONSABLE: </b> {fila['responsable']}
+        </div>
+        <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
+            <b>ACCION ID:</b> {fila['id']}<br>
+            <b>PEDIDO ID:</b> {fila['pedido_id']}
+        </div>
     </div>
-    <div style="display: inline-block; width: 48%; vertical-align: top; padding: 4px;">
-        <b>ACCION ID:</b> {fila['id']}<br>
-        <b>PEDIDO ID:</b> {fila['pedido_id']}
-    </div>
-</div>
-'''
+    '''
 
-html_table = """
+    html_table = """
 <p>&nbsp;</p>
 <p>ALARMA GPI: 🟥</p>
 <p>&nbsp;</p>
