@@ -50,3 +50,16 @@ LEFT JOIN (
     GROUP BY pedido_id
 ) a ON p.id = a.pedido_id
 ORDER BY total_acciones DESC;
+
+DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
+CREATE VIEW view_bi_hitos_top3 AS
+SELECT 
+	*,
+	b.id as bu_id,
+	CAST(julianday(h.fecha_fin) - julianday('now') AS INTEGER) AS Δ
+FROM hitos as h
+	INNER JOIN pedidos p ON h.pedido_id = p.id
+	INNER JOIN business_unit b ON p.bu_id = b.id
+WHERE h.estado <> 4
+ORDER BY h.fecha_fin ASC
+LIMIT 3;

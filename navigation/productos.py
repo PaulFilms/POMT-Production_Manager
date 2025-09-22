@@ -1,7 +1,10 @@
 
-import streamlit as st
-from functions import *
 import pandas as pd
+
+import streamlit as st
+from app import session_state_start
+from functions import *
+
 
 session_state_start()
 
@@ -55,6 +58,20 @@ if df_iloc is not None:
     st.write(sub_products)
 
 
+
+
+
+col1, col2, col3 = st.columns(3)
+
+with col1.expander('OPTIONS'):
+    st.button('NUEVO', width='stretch', icon=':material/add_box:')
+    st.button('EDITAR', width='stretch', icon=':material/edit_square:') # edit_square
+
+with col2.expander('FILTERS'):
+    st.text_input('polla', icon='🔍', label_visibility='hidden')
+    st.selectbox('BU', options=['polla', 'chocho'], index=None)
+    st.selectbox('', options=['polla', 'chocho'], index=None)
+
 # Lista de semanas
 semanas = list(range(1, 13))  # Puedes ajustar a 52 semanas si quieres
 
@@ -93,4 +110,3 @@ st.dataframe(
 )
 
 semanas = [1, 2, 3, 4, 5, 6, 7, 8]
-

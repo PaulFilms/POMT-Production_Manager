@@ -54,73 +54,36 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from functions import *
+
 
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
 st.logo(r'assets\logo_extend.svg', size='large')
 
+UI.my_calendar()
 
-a, b = st.columns(2)
-c, d = st.columns(2)
+st.header('TOP3 HITOS', divider='blue')
 
-a.metric("Temperature", "30°F", "-9°F", border=True)
-b.metric("Wind", "4 mph", "2 mph", border=True)
-
-c.metric("Humidity", "77%", "5%", border=True)
-d.metric("Pressure", "30.34 inHg", "-2 inHg", border=True)
-
-## 
-## ____________________________________________________________________________________________________________________________________________________________________
-
-# Crear datos para dos años con detalle mensual
-dates = pd.date_range(start="2023-01-01", end="2024-12-31", freq='MS')  # primer día de cada mes
-phones = [f"Hito {i+1}" for i in range(len(dates))]
-
-iphone_df = pd.DataFrame({
-    "Date": dates,
-    "Product": phones
-})
-# Niveles alternos para flechas arriba/abajo
-iphone_df["Level"] = [np.random.randint(-6,-2) if i % 2 == 0 else np.random.randint(2,6) for i in range(len(iphone_df))]
-
-# Mostrar selectbox para seleccionar un hito
-selected_hito = st.selectbox("Selecciona un hito", options=iphone_df["Product"])
-
-# Mostrar información del hito seleccionado
-info_hito = iphone_df[iphone_df["Product"] == selected_hito].iloc[0]
-st.write(f"Fecha: {info_hito['Date'].strftime('%Y-%m-%d')}")
-st.write(f"Hito: {info_hito['Product']}")
-
-# Graficar timeline
-with plt.style.context("fivethirtyeight"):
-    fig, ax = plt.subplots(figsize=(18, 6))
-
-    ax.plot(iphone_df.Date, [0]*len(iphone_df), "-o", color="black", markerfacecolor="white")
-
-    # Ticks cada mes con formato mes-año
-    ax.set_xticks(iphone_df.Date)
-    ax.set_xticklabels(iphone_df.Date.dt.strftime('%b-%Y'), rotation=45, ha="right")
-
-    ax.set_ylim(-7, 7)
-
-    for idx in range(len(iphone_df)):
-        dt, product, level = iphone_df["Date"].iloc[idx], iphone_df["Product"].iloc[idx], iphone_df["Level"].iloc[idx]
-        dt_str = dt.strftime("%b-%Y")
-        ax.annotate(dt_str + "\n" + product, xy=(dt, 0.1 if level > 0 else -0.1), xytext=(dt, level),
-                    arrowprops=dict(arrowstyle="-", color="red", linewidth=0.8),
-                    ha="center")
-
-    ax.spines[["left", "top", "right", "bottom"]].set_visible(False)
-    ax.spines[["bottom"]].set_position(("axes", 0.5))
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-    ax.set_title("Timeline Detallado Últimos 2 Años", pad=10, loc="left", fontsize=20, fontweight="bold")
-    ax.grid(False)
-
-st.pyplot(fig)
+headers = DB.execute('SELECT * FROM view_bi_hitos_top3 LIMIT 0', fetch=4)
+data = DB.select('SELECT * FROM view_bi_hitos_top3')
+df_bi = pd.DataFrame(data, columns=headers)
+# st.write(df_bi)
 
 
+a, b, c = st.columns(3)
+a.metric(df_bi['info'].iat[0], df_bi['bu_id'].iat[0], f'{df_bi['Δ'].iat[0]} Días', border=True, width='stretch')
+b.metric(df_bi['info'].iat[1], df_bi['bu_id'].iat[1], f'{df_bi['Δ'].iat[1]} Días', border=True, width='stretch')
+c.metric(df_bi['info'].iat[2], df_bi['bu_id'].iat[2], f'{df_bi['Δ'].iat[2]} Días', border=True, width='stretch')
+
+
+st.container(border=False, height=20) # Separador
+st.header('TOP3 PDCAs', divider='red')
+
+
+st.container(border=False, height=20) # Separador
+st.header('TOP10 Caminos Criticos', divider='orange')
 
 ## -------------------------------------------------------------------------------------------------------------
 
