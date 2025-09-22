@@ -1,3 +1,10 @@
 streamlit
+plotly
 rapidfuzz
 git+https://github.com/PaulFilms/MySQLite.git@main
+git+https://github.com/PaulFilms/PyReports.git@main
+
+## UNDER TESTING
+supabase
+streamlit-timeline
+matplotlib

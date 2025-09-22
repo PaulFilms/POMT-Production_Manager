@@ -1,8 +1,78 @@
+CREATE TABLE "usuarios" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"nombre"	TEXT,
+	"apellidos"	TEXT,
+	"mail"	TEXT,
+	"info"	TEXT,
+	"password"	TEXT,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+)
 
+CREATE TABLE "business_unit" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"info"	TEXT NOT NULL,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+);
 
+CREATE TABLE IF NOT EXISTS "pedidos" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"info"	TEXT,
+	"bu_id"	TEXT,
+	"contraseña"	TEXT,
+	"planificador"	TEXT,
+	"fecha_ini"	TEXT DEFAULT '2025-09-16',
+	"fecha_fin"	TEXT DEFAULT '2025-09-16',
+	"alarma"	INTEGER,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+);
+
+CREATE TABLE IF NOT EXISTS "hitos" (
+	"id"	INTEGER NOT NULL UNIQUE,
+	"pedido_id"	TEXT NOT NULL,
+	"grupo"	TEXT,
+	"info"	TEXT,
+	"fecha_ini"	TEXT DEFAULT '2025-09-16',
+	"fecha_fin"	TEXT DEFAULT '2025-09-16',
+	"responsable"	TEXT,
+	"alarma"	INTEGER DEFAULT 0,
+	"estado"	INTEGER DEFAULT 0,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id" AUTOINCREMENT),
+	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
+);
+
+CREATE TABLE IF NOT EXISTS "productos" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"modelo"	TEXT,
+	"empresa_id"	TEXT,
+	"tipo"	TEXT,
+	"info"	TEXT,
+	"url"	TEXT,
+	"part_number"	TEXT,
+	"sap_id"	INTEGER,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+);
 
 /* VIEWS
 ________________________________________________________________________________________________________________________________ */
+
+DROP VIEW IF EXISTS "main"."view_pedidos";
+CREATE VIEW view_pedidos AS
+SELECT
+	pedidos.*,
+	COUNT(hitos.pedido_id) AS 'hitos'
+FROM pedidos
+	LEFT JOIN hitos ON pedidos.id = hitos.pedido_id
+GROUP BY hitos.pedido_id;
 
 DROP VIEW IF EXISTS "main"."view_bunit_count";
 CREATE VIEW view_bunit_count AS

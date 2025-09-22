@@ -6,13 +6,12 @@ from dataclasses import dataclass, asdict
 import pandas as pd
 from pyreports.xlsx import DF_REPORT
 from mysqlite import *
-from supabase import create_client, Client
-from supabase.client import ClientOptions
+
 import streamlit as st
 import plotly.graph_objects as go
 # import plotly.express as px # https://python-charts.com/es/evolucion/diagrama-gantt-plotly/
 # import numpy as np
-import matplotlib.pyplot as plt
+
 
 
 ## DB
@@ -25,6 +24,8 @@ if SQLITE:
 
 SUPABASE: bool = 0
 if SUPABASE:
+    from supabase import create_client, Client
+    from supabase.client import ClientOptions
     url: str = st.secrets.connections.supabase.SUPABASE_URL
     key: str = st.secrets.connections.supabase.SUPABASE_KEY
     supabase: Client = create_client(
@@ -458,6 +459,7 @@ class UI:
         return plt
 
     def my_hitoline(df: pd.DataFrame, hito_col: str = "hito", fecha_col: str = "fecha"):
+        import matplotlib.pyplot as plt
         # Asegurarse que la columna de fecha sea datetime
         df[fecha_col] = pd.to_datetime(df[fecha_col])
 
@@ -597,10 +599,7 @@ class UI:
             st.plotly_chart(fig, width='content')
 
     def my_calendar():
-        import pandas as pd
-        import numpy as np
-        import streamlit as st
-        import calplot
+        import calplot ## https://pypi.org/project/calplot/
         import matplotlib.pyplot as plt
         from matplotlib.colors import ListedColormap
         from dateutil.relativedelta import relativedelta
@@ -631,7 +630,7 @@ class UI:
         alarma_filtrada = alarma_por_fecha.loc[fecha_desde:fecha_hasta]
 
         # Definir colormap
-        colores = ['red', 'yellow', 'green']
+        colores = ['grey', 'red', 'yellow', 'green']
         cmap = ListedColormap(colores)
 
         # Crear gráfico calplot
