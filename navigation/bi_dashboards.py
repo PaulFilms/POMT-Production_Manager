@@ -85,6 +85,15 @@ st.header('TOP3 PDCAs', divider='red')
 st.container(border=False, height=20) # Separador
 st.header('TOP10 Caminos Criticos', divider='orange')
 
+df = pd.DataFrame(
+    {
+        'h1': [1,2,3,4],
+        'h2': ['1','2','3','4'],
+    }
+)
+
+
+
 ## -------------------------------------------------------------------------------------------------------------
 
 

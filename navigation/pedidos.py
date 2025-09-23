@@ -190,7 +190,7 @@ class Pedidos:
                 st.rerun()
 
     def tbl_pedidos(df: pd.DataFrame) -> int:
-        pedidos_columns = ['#', 'info', 'id', 'bu_id', 'fecha_ini', 'fecha_fin']
+        pedidos_columns = ['info', 'id', 'bu_id', '#', 'hitos', 'fecha_ini', 'fecha_fin']
         col1, col2, col3 = st.columns(3)
 
         ## OPCIONES
@@ -267,13 +267,13 @@ class Pedidos:
 
         if vista == 'TABLA':
             columns_config = {
-                '#': st.column_config.Column('#', width=20),
-                'info': st.column_config.Column('info', width='large'),
-                'id': st.column_config.Column('id', width='small'),
-                'bu_id': st.column_config.Column('bu_id', width='small'),
+                'info': st.column_config.Column('INFO', width='large', pinned=True),
+                'id': st.column_config.Column('ID', width='small'),
+                'bu_id': st.column_config.Column('BUS. UNIT', width='small'),
+                '#': st.column_config.Column('#', width=50, pinned=False),
+                'hitos': st.column_config.NumberColumn('∑ Hitos', width=50),
                 'fecha_ini': st.column_config.DatetimeColumn('fecha_ini', format="YYYY-MM-DD", width='small'),
                 'fecha_fin': st.column_config.DatetimeColumn('fecha_fin', format="YYYY-MM-DD", width='small'),
-                '∑': st.column_config.NumberColumn('∑', width=10)
             }
             # tbl_height = height_holder.slider(label='TAMAÑO TABLA', label_visibility='collapsed', min_value=100, max_value=1000, value=150)
             tbl = data_holder.dataframe(
@@ -344,6 +344,13 @@ class Hitos:
             if isinstance(data['fecha_fin'], str):
                 data['fecha_fin'] = datetime.strptime(data['fecha_fin'], r'%Y-%m-%d')
             return cls(**data)
+
+    class nivel1(Enum):
+        DISEÑO = 'Diseño'
+        PPI = 'PPI' 
+        INDUSTRIALIZACION = 'Industrialización'
+        PRODUCCION = 'Producción'
+        ENTREGA = 'Entrega'
 
     @st.dialog('➕ NUEVO HITO', width='medium')
     def new_hito(pedido_id: str) -> None:
@@ -517,7 +524,6 @@ class Hitos:
         if vista == 'CALENDARIO':
             pass
 
-
 class Acciones:
     @dataclass
     class Accion:
@@ -644,107 +650,6 @@ class Acciones:
         tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None
 
         return tbl_iloc
-
-
-def get_portadas(**kwargs):
-    ## PEDIDO / PORTADA
-    time_data = {
-        # "title": {
-        #     'start_date': {"year": 2025, "month": 1, "day": 1},
-        #     'end_date': {"year": 2026, "month": 1, "day": 1},
-        #     "text": {"headline": kwargs['pedido'], "text": kwargs['info']},
-        #     'media': {
-        #         'url': r'https://xtb.scdn5.secure.raxcdn.com/default/0103/99/screenshot-2025-02-05-130401.png',
-        #         # 'caption': 'la caption'
-        #     }
-        # },
-        "groups": [
-            {"id": "pedido", "content": "Pedido"},
-            {"id": "hitos", "content": "Hitos"},
-            {"id": "acciones", "content": "Acciones"},
-        ],
-        'events': [
-            {
-                'start_date': {"year": 2025, "month": 1, "day": 1},
-                'end_date': {"year": 2026, "month": 1, "day": 1},
-                "text": {"headline": kwargs['pedido'], "text": kwargs['info']},
-                'media': {'url': r'https://images.twinkl.co.uk/tw1n/image/private/t_630/u/ux/charts-wiki_ver_1.png'},
-                "group": "pedido"
-            },
-            {
-                'start_date': {"year": 2025, "month": 1, "day": 1},
-                'end_date': {"year": 2025, "month": 3, "day": 1},
-                "text": {"headline": '🟨 LISTA DE MATERIALES', "text": 'LISTA DE MATERIALES \ntexto del hito'},
-                "group": "hitos"
-            },
-            {
-                'start_date': {"year": 2025, "month": 3, "day": 2},
-                'end_date': {"year": 2025, "month": 6, "day": 1},
-                "text": {"headline": '🟩 DOCUMENTACIÓN TÉCNICA', "text": 'DOCUMENTACIÓN TÉCNICA \ntexto del hito'},
-                "group": "hitos"
-            },
-
-        ]
-    }
-
-    ## ACCIONES / EVENTOS
-    for idx, fila in kwargs['df_acciones'].iterrows():
-        # headline = f'{fila['#']} {fila['estado']} {fila['causa']} | {fila['accion']}'
-
-        fecha_ini: datetime = fila['fecha_accion']
-        if fila['fecha_req'] == None:
-            fecha_fin = datetime.now()
-        else:
-            fecha_fin: datetime = fila['fecha_req']
-
-        headline = str()
-        if fila['#']: headline += f'{fila['#']}'
-        if fila['estado']: headline += f' {fila['estado']}'
-        # if fila['causa']: 
-        #     causa = Causas[fila['causa']].value
-        #     headline += f' {causa}'
-        if fila['causa']: headline += f' {fila['causa']}'
-
-        ## HTML
-        html_str = str()
-        html_str += f'''
-        <div style="width: 100%; font-family: Neo Sans, Neo Sans;padding:20px; margin:12px 0; ">
-            <b>PEDIDO ID: </b> {fila['pedido_id']}<br>
-            <b>PLANIFICADOR: </b> {fila['planificador']}<br>
-            <b>RESPONSABLE: </b> {fila['responsable']}<br>
-            <b>ACCION ID: </b> {fila['id']}<br>
-        </div>
-        '''
-        # html_str += f"<p>{fila['info']}</p>"
-        # html_str += f"<p>{fila['accion']}</p>"
-        html_str += UI.generar_card('INFO', fila['info'])
-        html_str += UI.generar_card('ACCION', fila['accion'])
-        # html_str += UI.generar_card('PLANIFICADOR', fila['planificador'])
-        # html_str += UI.generar_card('RESPONSABLE', fila['responsable'])
-
-        html_str += f'''
-        <div style="width: 100%; font-family: Neo Sans, Neo Sans; padding:20px; margin:12px 0; ">
-            <b>RESPUESTAS</b>
-        </div>'''
-
-        for r in fila['DB'].get('respuestas', []):
-            for k, v in r.items():
-                html_str += UI.generar_card(k, v)
-
-        time_dict = {
-            'start_date': {"year": fecha_ini.year, "month": fecha_ini.month, "day": fecha_ini.day},
-            'end_date': {"year": fecha_fin.year, "month": fecha_fin.month, "day": fecha_fin.day},
-            'text': {
-                'headline': headline, 
-                # 'headline': f"<h1 style='font-size:24px; color: #333;'>{headline}</h1>", 
-                'text': html_str
-            },
-            "group": "acciones"
-        }
-        time_data['events'].append(time_dict)
-
-    with st.container(border=True):
-        timeline(time_data)
 
 
 

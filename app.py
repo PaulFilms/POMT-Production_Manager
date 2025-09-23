@@ -43,6 +43,9 @@ def login():
 def logout():
     st.session_state.login = None
 
+def get_firm():
+    return f"{st.session_state.login.id} [{datetime.now().strftime(r'%Y-%m-%d / %H:%M')}]"
+
 ## PAGES
 
 # pg_login = st.Page(r'navigation\login.py', title='Log-in', icon=':material/login:')

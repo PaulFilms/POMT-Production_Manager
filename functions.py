@@ -38,6 +38,7 @@ if SUPABASE:
         )
     )
 
+
 ## DB
 ## ____________________________________________________________________________________________________________________________________________________________________
 
@@ -149,6 +150,7 @@ class Modificacion:
     
     # def to_json(self):
     #     return json.dumps(self.to_dict())
+
 
 ## DATA
 ## ____________________________________________________________________________________________________________________________________________________________________
@@ -264,8 +266,9 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     '''
     # headers = DB.execute("SELECT * FROM view_pedidos_count LIMIT 0", fetch=4)
     # data = DB.select('SELECT * FROM view_pedidos_count')
-    headers = DB.execute("SELECT * FROM pedidos LIMIT 0", fetch=4)
-    data = DB.select('SELECT * FROM pedidos')
+    table = 'view_pedidos'
+    headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
+    data = DB.select(f'SELECT * FROM {table}')
 
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
@@ -643,8 +646,6 @@ class UI:
 
         # Mostrar gráfico en Streamlit
         st.pyplot(fig)
-
-
 
 class HTML:
     def generar_card(titulo, contenido):

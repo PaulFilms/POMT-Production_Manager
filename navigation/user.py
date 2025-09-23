@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 st.write(f'Hello {st.session_state.login.nombre}')
 
-col_estado, col_bunit = st.columns(2)
+# col_estado, col_bunit = st.columns(2)
 
 tab_pedidos, tab_acciones = st.tabs(['GPIs', 'PDCA'])
 
@@ -35,7 +35,8 @@ with tab_pedidos:
     #     df_pedidos,
     #     width='stretch', on_select='rerun', selection_mode='single-row'
     # )
-    pass
+    st.container(border=False, height=100)
+
 
 with tab_acciones:
     pass

@@ -1,4 +1,4 @@
-CREATE TABLE "usuarios" (
+CREATE TABLE IF NOT EXISTS "usuarios" (
 	"id"	TEXT NOT NULL UNIQUE,
 	"nombre"	TEXT,
 	"apellidos"	TEXT,
@@ -8,9 +8,17 @@ CREATE TABLE "usuarios" (
 	"DB"	BLOB DEFAULT '{}',
 	"firm"	TEXT,
 	PRIMARY KEY("id")
-)
+);
 
-CREATE TABLE "business_unit" (
+CREATE TABLE IF NOT EXISTS "departamentos" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"info"	TEXT NOT NULL,
+	"DB"	BLOB DEFAULT '{"usuario_id": []}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+);
+
+CREATE TABLE IF NOT EXISTS "business_unit" (
 	"id"	TEXT NOT NULL UNIQUE,
 	"info"	TEXT NOT NULL,
 	"DB"	BLOB DEFAULT '{}',
@@ -20,12 +28,12 @@ CREATE TABLE "business_unit" (
 
 CREATE TABLE IF NOT EXISTS "pedidos" (
 	"id"	TEXT NOT NULL UNIQUE,
-	"info"	TEXT,
+	"info"	TEXT NOT NULL,
 	"bu_id"	TEXT,
 	"contraseña"	TEXT,
 	"planificador"	TEXT,
-	"fecha_ini"	TEXT DEFAULT '2025-09-16',
-	"fecha_fin"	TEXT DEFAULT '2025-09-16',
+	"fecha_ini"	TEXT DEFAULT '2025-01-01',
+	"fecha_fin"	TEXT DEFAULT '2025-01-01',
 	"alarma"	INTEGER,
 	"DB"	BLOB DEFAULT '{}',
 	"firm"	TEXT,
@@ -37,8 +45,8 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 	"pedido_id"	TEXT NOT NULL,
 	"grupo"	TEXT,
 	"info"	TEXT,
-	"fecha_ini"	TEXT DEFAULT '2025-09-16',
-	"fecha_fin"	TEXT DEFAULT '2025-09-16',
+	"fecha_ini"	TEXT DEFAULT '2025-01-01',
+	"fecha_fin"	TEXT DEFAULT '2025-01-01',
 	"responsable"	TEXT,
 	"alarma"	INTEGER DEFAULT 0,
 	"estado"	INTEGER DEFAULT 0,
@@ -48,9 +56,39 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
 );
 
+CREATE TABLE IF NOT EXISTS "acciones" (
+	"id"	INTEGER NOT NULL UNIQUE,
+	"pedido_id"	TEXT NOT NULL,
+	"causa"	TEXT,
+	"alarma"	INTEGER,
+	"info"	TEXT,
+	"accion"	TEXT,
+	"planificador"	TEXT,
+	"responsable"	TEXT,
+	"fecha_accion"	TEXT DEFAULT '2025-01-01',
+	"fecha_req"	INTEGER DEFAULT '2025-01-01',
+	"estado"	INTEGER DEFAULT 0,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id" AUTOINCREMENT),
+	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
+);
+
+CREATE TABLE IF NOT EXISTS "empresas" (
+	"id"	TEXT NOT NULL UNIQUE,
+	"nombre"	TEXT NOT NULL,
+	"direccion1"	TEXT,
+	"direccion2"	TEXT,
+	"url"	TEXT,
+	"info"	TEXT,
+	"DB"	BLOB DEFAULT '{}',
+	"firm"	TEXT,
+	PRIMARY KEY("id")
+);
+
 CREATE TABLE IF NOT EXISTS "productos" (
 	"id"	TEXT NOT NULL UNIQUE,
-	"modelo"	TEXT,
+	"modelo"	TEXT NOT NULL,
 	"empresa_id"	TEXT,
 	"tipo"	TEXT,
 	"info"	TEXT,
@@ -72,6 +110,7 @@ SELECT
 	COUNT(hitos.pedido_id) AS 'hitos'
 FROM pedidos
 	LEFT JOIN hitos ON pedidos.id = hitos.pedido_id
+WHERE hitos.estado <> 4
 GROUP BY hitos.pedido_id;
 
 DROP VIEW IF EXISTS "main"."view_bunit_count";
@@ -92,35 +131,6 @@ GROUP BY
 ORDER BY 
     total_pedidos DESC;
 
-DROP VIEW IF EXISTS "main"."view_pedidos_count";
-CREATE VIEW view_pedidos_count AS
-SELECT 
-    p.*,
-    COALESCE(a.total_acciones, 0) AS total_acciones,
-    COALESCE(a.LM, NULL) AS LM,
-    COALESCE(a.DT, NULL) AS DT,
-    COALESCE(a.PL, NULL) AS PL,
-    COALESCE(a.PR, NULL) AS PR,
-    COALESCE(a.EM, NULL) AS EM,
-	COALESCE(a.CA, NULL) AS CA
-FROM 
-    pedidos p
-LEFT JOIN (
-    SELECT 
-        pedido_id,
-        COUNT(*) AS total_acciones,
-        MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
-        MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
-        MIN(CASE WHEN causa = 'PL' THEN alarma END) AS PL,
-        MIN(CASE WHEN causa = 'PR' THEN alarma END) AS PR,
-        MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
-		MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
-    FROM acciones
-	WHERE estado <> 4 OR estado IS NULL
-    GROUP BY pedido_id
-) a ON p.id = a.pedido_id
-ORDER BY total_acciones DESC;
-
 DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 CREATE VIEW view_bi_hitos_top3 AS
 SELECT 
@@ -133,3 +143,32 @@ FROM hitos as h
 WHERE h.estado <> 4
 ORDER BY h.fecha_fin ASC
 LIMIT 3;
+
+-- DROP VIEW IF EXISTS "main"."view_pedidos_count";
+-- CREATE VIEW view_pedidos_count AS
+-- SELECT 
+--     p.*,
+--     COALESCE(a.total_acciones, 0) AS total_acciones,
+--     COALESCE(a.LM, NULL) AS LM,
+--     COALESCE(a.DT, NULL) AS DT,
+--     COALESCE(a.PL, NULL) AS PL,
+--     COALESCE(a.PR, NULL) AS PR,
+--     COALESCE(a.EM, NULL) AS EM,
+-- 	COALESCE(a.CA, NULL) AS CA
+-- FROM 
+--     pedidos p
+-- LEFT JOIN (
+--     SELECT 
+--         pedido_id,
+--         COUNT(*) AS total_acciones,
+--         MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
+--         MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
+--         MIN(CASE WHEN causa = 'PL' THEN alarma END) AS PL,
+--         MIN(CASE WHEN causa = 'PR' THEN alarma END) AS PR,
+--         MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
+-- 		MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
+--     FROM acciones
+-- 	WHERE estado <> 4 OR estado IS NULL
+--     GROUP BY pedido_id
+-- ) a ON p.id = a.pedido_id
+-- ORDER BY total_acciones DESC;

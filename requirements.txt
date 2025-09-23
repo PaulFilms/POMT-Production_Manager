@@ -5,6 +5,8 @@ git+https://github.com/PaulFilms/MySQLite.git@main
 git+https://github.com/PaulFilms/PyReports.git@main
 
 ## UNDER TESTING
+ollama
 supabase
-streamlit-timeline
 matplotlib
+# streamlit-timeline # https://pypi.org/project/streamlit-timeline/
+calplot # https://pypi.org/project/calplot/
