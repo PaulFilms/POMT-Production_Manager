@@ -245,7 +245,6 @@ def get_usuarios_by_dept(departamento_id: str):
     DB: dict = json.loads(df_DB)
     return DB.get('usuario_id', None)
 
-
 # @st.cache_data
 def get_business_units(count: int = 0) -> 'pd.DataFrame':
     '''
@@ -304,7 +303,6 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
-# @st.cache_data
 def get_acciones(pedido_id: str) -> 'pd.DataFrame':
     '''
     st.session_state.action
@@ -334,7 +332,7 @@ def get_productos(count: int = 0):
 def report_pedidos():
     df = get_pedidos(st.session_state.pedidos)
     df = df.drop(['DB', '∑', '#', 'fecha_ini', 'fecha_fin'], axis=1)
-    path = r'temp\report_pedidos.xlsx'
+    path = r'temp/report_pedidos.xlsx'
     if os.path.exists(path):
         os.remove(path)
     DF_REPORT(path=path, dataFrame=df)
@@ -602,10 +600,18 @@ class UI:
             st.plotly_chart(fig, width='content')
 
     def my_calendar():
+        import warnings
+        warnings.filterwarnings("ignore", message="findfont: Font family 'Helvetica' not found.")
+        from matplotlib import rcParams
+        rcParams['font.family'] = 'Neo Sans'
+
         import calplot ## https://pypi.org/project/calplot/
         import matplotlib.pyplot as plt
         from matplotlib.colors import ListedColormap
         from dateutil.relativedelta import relativedelta
+        
+        # Cambiar la fuente globalmente a 'DejaVu Sans' (viene con matplotlib)
+        
 
         # Tu DB
         columns = DB.execute('SELECT * FROM hitos LIMIT 0', fetch=4)

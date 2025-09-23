@@ -25,6 +25,9 @@ session_state_start()
 ## TOOLS
 ## ____________________________________________________________________________________________________________________________________________________________________
 
+class Templates:
+    
+
 class Pedidos:
     @dataclass
     class Pedido:
@@ -386,6 +389,11 @@ class Hitos:
                 st.session_state.hitos += 1
                 st.rerun()
 
+    @st.dialog('➕ NUEVO HITO', width='medium')
+    def template(pedido_id: str, template: str) -> None:
+        st.write(pedido_id)
+        st.write(template)
+
     # def tbl_hitos(df: pd.DataFrame) -> int:
     def tbl_hitos(pedido_id: str) -> int:
         # columns = ['#', 'grupo', 'info', 'responsable', 'estado', 'Δ'] # 'fecha_ini', 'fecha_fin', 
@@ -438,6 +446,9 @@ class Hitos:
             st.button('NUEVO', width='stretch', icon=':material/add_box:', on_click=Hitos.new_hito, kwargs={'pedido_id': pedido_id})
             # st.button('EDITAR', width='stretch', icon=':material/edit_square:', disabled=opt_edit) # edit_square
             edit_holder = st.empty()
+            template = st.selectbox('TEMPLATE', options=['FABRICACIÓN', 'DESARROLLO SOFT'], index=None)
+            if template:
+                st.button('TEMPLATE', width='stretch', icon=':material/add_box:', on_click=Hitos.template, kwargs={'pedido_id': pedido_id, 'template': template})
 
         with col_hitos_filtros.expander('FILTROS', icon='🔍', width='stretch'):
             fltr_hitos_str = st.text_input('fltr_hitos_str', label_visibility='collapsed', icon='🔍')
@@ -658,17 +669,6 @@ class Acciones:
 
 st.logo(r'assets\logo_extend.svg', size='large')
 
-# with st.sidebar:
-#     st.button('NUEVA GPI', icon='➕', width='stretch', on_click=Pedidos.new_pedido)
-#     vistas = ['POR GPI', 'POR TABLA']
-#     gpi_view = st.radio("VISTA GPI's", options=vistas, index=1)
-    # st.write('OPTIONS:')
-    # ck_table = st.checkbox('DATA TABLE', value=False)
-    # ck_timeline = st.checkbox('TIMELINE', value=False)
-    # ck_update = st.checkbox('UPDATE', value=False)
-    # st.button('UPDATE', icon='🧷', use_container_width=True)
-    # st.divider()
-
 ## PEDIDOS
 
 df_pedidos = get_pedidos(st.session_state.pedidos)
@@ -678,7 +678,7 @@ if pedido_loc != None:
     pedido = Pedidos.Pedido.from_dict(df_pedidos.loc[pedido_loc].to_dict())
 
     st.container(border=False, height=20) # Separador
-    tab_hitos, tab_acciones = st.tabs(['HITOS', "PDCA's"])
+    tab_hitos, tab_acciones, tab_gpilog = st.tabs(['HITOS', "PDCA's", 'GPI Log', ])
 
     ## HITOS
     with tab_hitos:
@@ -690,6 +690,33 @@ if pedido_loc != None:
 
     ## PDCAs
     pass
+
+    ## GPI Log
+    with tab_gpilog:
+        # st.write(pedido.DB)
+        modificaciones = pedido.DB.get('modificaciones', None)
+        if modificaciones:
+            for mod in modificaciones:
+                # st.write(mod)
+                fecha = mod.get('fecha', None)
+                info = mod.get('info', None)
+                user = mod.get('user', None)
+                title = f'{fecha} / {user}'
+
+                st.write(title)
+                with st.container(border=True):
+                    st.caption(info)
+                    data = mod.get('data', None)
+                    if data:
+                        rows = []
+                        for key, values in data.items():
+                            rows.append({
+                                "PARAMETRO": key,
+                                "ANTERIOR": str(values.get("old")),
+                                "NUEVO": str(values.get("new"))
+                            })
+                        df = pd.DataFrame(rows)
+                        st.dataframe(pd.DataFrame(rows), hide_index=True)
 
 
 ## OLD 2025 09 18

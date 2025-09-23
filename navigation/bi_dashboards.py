@@ -60,7 +60,7 @@ from functions import *
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 UI.my_calendar()
 
