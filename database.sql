@@ -100,38 +100,58 @@ CREATE TABLE IF NOT EXISTS "productos" (
 	PRIMARY KEY("id")
 );
 
+CREATE TABLE IF NOT EXISTS "templates" (
+	"id"	INTEGER NOT NULL UNIQUE,
+	"template"	TEXT NOT NULL,
+	"nombre"	TEXT NOT NULL,
+	"orden"	INTEGER NOT NULL,
+	"porcentage"	INTEGER NOT NULL,
+	"info"	TEXT,
+	PRIMARY KEY("id")
+)
+
+DROP INDEX IF EXISTS "main"."indx_templates";
+CREATE INDEX "indx_templates" ON "templates" (
+	"template"	ASC,
+	"orden"	ASC
+);
+
 /* VIEWS
 ________________________________________________________________________________________________________________________________ */
 
 DROP VIEW IF EXISTS "main"."view_pedidos";
+DROP VIEW IF EXISTS "main"."view_bunit_count";
+DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
+
+-- DROP VIEW IF EXISTS "main"."view_pedidos";
 CREATE VIEW view_pedidos AS
 SELECT
 	pedidos.*,
-	COUNT(hitos.pedido_id) AS 'hitos'
+	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS 'hitos' -- Sin finalizados
 FROM pedidos
 	LEFT JOIN hitos ON pedidos.id = hitos.pedido_id
-WHERE hitos.estado <> 4
 GROUP BY hitos.pedido_id;
 
-DROP VIEW IF EXISTS "main"."view_bunit_count";
+-- DROP VIEW IF EXISTS "main"."view_bunit_count";
 CREATE VIEW view_bunit_count AS
 SELECT 
-    a.id AS id,
-	a.info,
-    COUNT(p.id) AS total_pedidos,
-	SUM(CASE WHEN p.alarma = 1 THEN 1 ELSE 0 END) AS alarma_1,
-	SUM(CASE WHEN p.alarma = 2 THEN 1 ELSE 0 END) AS alarma_2,
-	SUM(CASE WHEN p.alarma = 3 THEN 1 ELSE 0 END) AS alarma_3
+--  a.id AS id,
+-- 	a.info,
+	bu.*,
+    COUNT(p.id) AS gpi,
+	SUM(CASE WHEN p.alarma = 1 THEN 1 ELSE 0 END) AS 🟥,
+	SUM(CASE WHEN p.alarma = 2 THEN 1 ELSE 0 END) AS 🟨,
+	SUM(CASE WHEN p.alarma = 3 THEN 1 ELSE 0 END) AS 🟩
 FROM 
-    business_unit a
+    business_unit bu
 LEFT JOIN 
-    pedidos p ON p.bu_id = a.id
+    pedidos p ON p.bu_id = bu.id
 GROUP BY 
-    a.id, a.id
+    bu.id
 ORDER BY 
-    total_pedidos DESC;
+    gpi DESC;
 
-DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
+-- DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 CREATE VIEW view_bi_hitos_top3 AS
 SELECT 
 	*,

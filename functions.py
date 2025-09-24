@@ -1,4 +1,5 @@
 import os, json
+from typing import List, Dict, Any
 # from typing import TypedDict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -74,9 +75,9 @@ class Usuario:
             sql_data[6] = json.loads(sql_data[6])
         return cls(*sql_data)
 
-    # @staticmethod
-    def get_firm(self) -> str:
-        return f'{self.id} / {datetime.now()}'
+    # # @staticmethod
+    # def get_firm(self) -> str:
+    #     return f'{self.id} / {datetime.now()}'
 
 class Alarmas(Enum):
     red     = ("🟥", 1)
@@ -253,9 +254,9 @@ def get_business_units(count: int = 0) -> 'pd.DataFrame':
     headers = DB.execute("SELECT * FROM view_bunit_count LIMIT 0", fetch=4)
     data = DB.select('SELECT * FROM view_bunit_count')
     df = pd.DataFrame(data, columns=headers)
-    df['🟥'] = df['alarma_1']
-    df['🟨'] = df['alarma_2']
-    df['🟩'] = df['alarma_3']
+    # df['🟥'] = df['alarma_1']
+    # df['🟨'] = df['alarma_2']
+    # df['🟩'] = df['alarma_3']
     return df
 
 # @st.cache_data
@@ -328,6 +329,10 @@ def get_productos(count: int = 0):
     data = DB.select(f'SELECT * FROM productos;')
     df = pd.DataFrame(data, columns=headers)
     return df
+
+def get_templates(count: int = 0) -> List[str]:
+    data = DB.select("SELECT DISTINCT(template) FROM templates;")
+    return [d[0] for d in data]
 
 def report_pedidos():
     df = get_pedidos(st.session_state.pedidos)
