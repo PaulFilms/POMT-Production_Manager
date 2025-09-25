@@ -6,3 +6,6 @@ test.py
 test.ipynb
 *.db
 secrets.toml
+PruebasDB.ipynb
+mysqlite.py
+actualizar_tablas.py

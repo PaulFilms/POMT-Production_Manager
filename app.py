@@ -57,6 +57,8 @@ pg_bi_dashboards = st.Page(r'navigation\bi_dashboards.py', title='BI / DASHBOARD
 pg_chat_ia = st.Page(r'navigation\chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
 pg_gantt = st.Page(r'navigation\gantt.py', title='GANTT', icon=':material/smart_toy:')
 
+#Caminos Criticos:
+pg_ccriticos = st.Page(r'navigation\ccriticos.py', title='C.Criticos', icon=':material/smart_toy:')
 
 
 if __name__ == '__main__':
@@ -86,6 +88,9 @@ if __name__ == '__main__':
                 pg_chat_ia,
                 pg_productos,
                 pg_gantt,
+            ],
+            'PROYECTOS': [
+                pg_ccriticos,
             ]
         }
 
