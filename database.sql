@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS "pedidos" (
 	"fecha_ini"	TEXT DEFAULT '2025-01-01',
 	"fecha_fin"	TEXT DEFAULT '2025-01-01',
 	"alarma"	INTEGER,
-	"DB"	BLOB DEFAULT '{}',
+	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id")
 );
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 	"responsable"	TEXT,
 	"alarma"	INTEGER DEFAULT 0,
 	"estado"	INTEGER DEFAULT 0,
-	"DB"	BLOB DEFAULT '{}',
+	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS "acciones" (
 	"fecha_accion"	TEXT DEFAULT '2025-01-01',
 	"fecha_req"	INTEGER DEFAULT '2025-01-01',
 	"estado"	INTEGER DEFAULT 0,
-	"DB"	BLOB DEFAULT '{}',
+	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT),
 	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
@@ -120,28 +120,27 @@ CREATE INDEX "indx_templates" ON "templates" (
 ________________________________________________________________________________________________________________________________ */
 
 DROP VIEW IF EXISTS "main"."view_pedidos";
-DROP VIEW IF EXISTS "main"."view_bunit_count";
+DROP VIEW IF EXISTS "main"."view_business_unit";
 DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 
 -- DROP VIEW IF EXISTS "main"."view_pedidos";
 CREATE VIEW view_pedidos AS
 SELECT
 	pedidos.*,
-	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS 'hitos' -- Sin finalizados
+	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS '∑_hitos', -- Sin finalizados
+	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS '🚦1', -- Sin finalizados
 FROM pedidos
 	LEFT JOIN hitos ON pedidos.id = hitos.pedido_id
 GROUP BY hitos.pedido_id;
 
--- DROP VIEW IF EXISTS "main"."view_bunit_count";
-CREATE VIEW view_bunit_count AS
+-- DROP VIEW IF EXISTS "main"."view_business_unit";
+CREATE VIEW view_business_unit AS
 SELECT 
---  a.id AS id,
--- 	a.info,
 	bu.*,
-    COUNT(p.id) AS gpi,
-	SUM(CASE WHEN p.alarma = 1 THEN 1 ELSE 0 END) AS 🟥,
-	SUM(CASE WHEN p.alarma = 2 THEN 1 ELSE 0 END) AS 🟨,
-	SUM(CASE WHEN p.alarma = 3 THEN 1 ELSE 0 END) AS 🟩
+    COUNT(p.id) AS "∑_GPIs",
+	SUM(CASE WHEN p.alarma = 1 THEN 1 ELSE 0 END) AS "🟥",
+	SUM(CASE WHEN p.alarma = 2 THEN 1 ELSE 0 END) AS "🟨",
+	SUM(CASE WHEN p.alarma = 3 THEN 1 ELSE 0 END) AS "🟩"
 FROM 
     business_unit bu
 LEFT JOIN 
@@ -149,19 +148,19 @@ LEFT JOIN
 GROUP BY 
     bu.id
 ORDER BY 
-    gpi DESC;
+    "∑_GPIs" DESC;
 
 -- DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 CREATE VIEW view_bi_hitos_top3 AS
 SELECT 
-	*,
+	hitos.*,
 	b.id as bu_id,
-	CAST(julianday(h.fecha_fin) - julianday('now') AS INTEGER) AS Δ
-FROM hitos as h
-	INNER JOIN pedidos p ON h.pedido_id = p.id
+	CAST(julianday(hitos.fecha_fin) - julianday('now') AS INTEGER) AS "Δ_dias"
+FROM hitos
+	INNER JOIN pedidos p ON hitos.pedido_id = p.id
 	INNER JOIN business_unit b ON p.bu_id = b.id
-WHERE h.estado <> 4
-ORDER BY h.fecha_fin ASC
+WHERE hitos.estado <> 4
+ORDER BY hitos.fecha_fin ASC
 LIMIT 3;
 
 -- DROP VIEW IF EXISTS "main"."view_pedidos_count";

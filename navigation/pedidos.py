@@ -196,7 +196,7 @@ class Pedidos:
                     if isinstance(old, datetime): old = old.strftime(r'%Y-%m-%d')
                     if isinstance(new, datetime): new = new.strftime(r'%Y-%m-%d')
                     mod.data[k] = {'old': old, 'new': new}
-                values['firm'] = f'{st.session_state.login.id} / {fecha_mod}'
+                values['firm'] = get_firm()
                 values['DB'] = pedido.DB
                 if not values['DB'].get('modificaciones'):
                     values['DB']['modificaciones'] = []
@@ -210,7 +210,7 @@ class Pedidos:
                 st.rerun()
 
     def tbl_pedidos(df: pd.DataFrame) -> int:
-        pedidos_columns = ['info', 'id', 'bu_id', '#', 'hitos', 'fecha_ini', 'fecha_fin']
+        pedidos_columns = ['info', 'id', 'bu_id', 'planificador', '#', '∑_hitos', 'fecha_ini', 'fecha_fin']
         col1, col2, col3 = st.columns(3)
 
         ## OPCIONES
@@ -241,6 +241,8 @@ class Pedidos:
         with col2.expander('FILTROS', icon='🔍', width='stretch'):
             filter_str = st.text_input('FILTER', label_visibility='collapsed', icon='🔍')
             filter_bunit = st.selectbox('BUSINESS UNIT', options=get_business_units()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False )
+            st.write('ALARMA')
+            # with st.container(border=True):
             filter_alert = st.radio('ALERT', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=False)
         
         ## VISTA
@@ -287,11 +289,12 @@ class Pedidos:
 
         if vista == 'TABLA':
             columns_config = {
-                'info': st.column_config.Column('INFO', width='large', pinned=True),
-                'id': st.column_config.Column('ID', width='small'),
+                'info': st.column_config.Column('DESCRIPCIÓN GPI', width='large', pinned=True),
+                'id': st.column_config.Column('GPI', width='small'),
                 'bu_id': st.column_config.Column('BUS. UNIT', width='small'),
-                '#': st.column_config.Column('#', width=50, pinned=False),
-                'hitos': st.column_config.NumberColumn('∑ Hitos', width=50),
+                'planificador': st.column_config.Column('IP', width='small'),
+                '#': st.column_config.Column('ALARMA', width=50, pinned=False),
+                '∑_hitos': st.column_config.NumberColumn('∑', width=50),
                 'fecha_ini': st.column_config.DatetimeColumn('fecha_ini', format="YYYY-MM-DD", width='small'),
                 'fecha_fin': st.column_config.DatetimeColumn('fecha_fin', format="YYYY-MM-DD", width='small'),
             }
@@ -357,7 +360,7 @@ class Hitos:
             return asdict(self)
 
         @classmethod
-        def from_dict(cls, values: Dict[str, Any]) -> 'Pedidos.Pedido':
+        def from_dict(cls, values: Dict[str, Any]) -> 'Hitos.Hito':
             cls_fields = {f.name for f in fields(cls)}
             data = {k: v for k, v in values.items() if k in cls_fields}
             if isinstance(data['fecha_ini'], str):
@@ -373,7 +376,7 @@ class Hitos:
         departamento    = col_bu.selectbox('DEPARTAMENTO', options=get_departamentos(st.session_state.departamentos)['id'].tolist(), index=None, accept_new_options=False)
         responsable      = col_user.selectbox('RESPONSABLE', options=get_usuarios_by_dept(departamento), index=None, accept_new_options=False)
 
-        info = st.text_area('INFO / DESCRIPCIÓN', value=None)
+        nombre = st.text_area('INFO / DESCRIPCIÓN', value=None)
         grupo = st.text_input('GRUPO')
         fecha_ini = st.date_input('FECHA INICIO', value=None, min_value=datetime(2024,1,1), format='YYYY-MM-DD')
         fecha_fin = st.date_input('FECHA FIN', value=None, min_value=datetime(2024,1,1), format='YYYY-MM-DD')
@@ -388,17 +391,85 @@ class Hitos:
                 values = {
                     'pedido_id': pedido_id,
                     'grupo': grupo,
-                    'info': info,
+                    'nombre': nombre,
                     'fecha_ini': fecha_ini.strftime(r'%Y-%m-%d'),
                     'fecha_fin': fecha_fin.strftime(r'%Y-%m-%d'),
                     'responsable': responsable,
                     'alarma': alarma,
                     'estado': 1,
+                    'info': info,
                     'firm': get_firm(),
                 }
                 DB.insert('hitos', values=values)
                 st.session_state.hitos += 1
                 st.rerun()
+
+    @st.dialog('ℹ️ INFO HITO', width='medium')
+    def edit_hito(hito: 'Hitos.Hito') -> None:
+        st.write(hito.pedido_id, '/', hito.grupo)
+        st.write(hito.info)
+
+        alarma_indx = pedido.alarma - 1 if isinstance(hito.alarma, int) else None
+        alarma_color = st.radio('ALARMA', options=["🟥","🟨","🟩"], index=alarma_indx, horizontal=True)
+        alarma = Alarmas.get_int(alarma_color)
+        estado_icon = st.radio('ESTADO', options=Estados.get_estados_icon(), index=alarma_indx, horizontal=True)
+        estado = Estados.get_id(estado_icon)
+        fecha_ini = st.date_input('FECHA INICIO', value=hito.fecha_ini, format='YYYY-MM-DD')
+        fecha_fin = st.date_input('FECHA FIN', value=hito.fecha_fin, format='YYYY-MM-DD')
+        # info = st.text_area('INFO / DESCRIPCIÓN', value=hito.info, height=1)
+        btn_mod = st.button('MODIFICAR', width='stretch')
+        info_mod = st.text_area('INFO MODIFICACIÓN', height=1)
+        mail = st.checkbox('ENVIAR MAIL')
+        fecha_mod = datetime.now().strftime(r'%Y-%m-%d %H:%M')
+
+        if btn_mod:
+            if fecha_fin < fecha_ini:
+                st.warning("LA FECHA DE FIN ES MENOR QUE LA FECHA DE INICIO", icon='⚠️')
+            elif not info_mod:
+                st.warning("INDICA EL MOTIVO DE LA MODIFICACIÓN", icon='⚠️')
+            else:
+                fecha_ini = fecha_ini.strftime(r'%Y-%m-%d')
+                fecha_fin = fecha_fin.strftime(r'%Y-%m-%d')
+                mod = Modificacion(
+                    fecha=datetime.now(),
+                    info=info_mod,
+                    data=dict(),
+                    user=st.session_state.login.id
+                )
+                args = {
+                    'fecha_ini': fecha_ini, 
+                    'fecha_fin': fecha_fin, 
+                    'alarma': alarma, 
+                    'estado': estado, 
+                    'info': info,
+                }
+                values = dict()
+                for k, v in args.items():
+                    old = getattr(hito, k)
+                    new = v
+                    if isinstance(old, datetime): old = old.strftime(r'%Y-%m-%d')
+                    if isinstance(new, datetime): new = new.strftime(r'%Y-%m-%d')
+                    if new != old:
+                        mod.data[k] = {
+                            'old': old,
+                            'new': new,
+                        }
+                        values[k] = new
+                
+                values['firm'] = get_firm()
+                values['DB'] = hito.DB
+                if not values['DB'].get('modificaciones'):
+                    values['DB']['modificaciones'] = []
+                values['DB']['modificaciones'].append(mod.to_dict())
+                values['DB'] = json.dumps(values['DB'])
+
+                if mail:
+                    send_mail()
+                
+                DB.update('hitos', values=values, where={'id': hito.id})
+                st.session_state.hitos += 1
+                st.rerun()
+
 
     # @st.dialog('➕ NUEVO HITO', width='medium')
     def template(pedido_id: str, template: str) -> None:
@@ -448,50 +519,7 @@ class Hitos:
         st.rerun()
 
     # def tbl_hitos(df: pd.DataFrame) -> int:
-    def tbl_hitos(pedido_id: str) -> int:
-        # columns = ['#', 'grupo', 'info', 'responsable', 'estado', 'Δ'] # 'fecha_ini', 'fecha_fin', 
-
-        # ## OPTIONS
-        # col1, col2, col3 = st.columns(3)
-
-        # with col1.popover('TABLE OPTIONS', icon='🔧', width='stretch'):
-        #     tbl_height = st.slider(label='HEIGHT', label_visibility='visible', min_value=200, max_value=1000, key='hitos')
-
-        # ## DATAFRAME
-        # df_filter = df[columns]
-        # # styled_df = df.style.applymap(Alarmas.color_cells, subset=['Δ'])
-        # # df['Δ'].map(Alarmas.color_cells)
-        # # df_filter.style.apply(UI.color_cells, subset=['Δ'])
-        # df_styled = df_filter.style.map(UI.color_cells, subset=['Δ']).hide(axis='index')
-        # st.write(df_styled)
-
-        ## TABLE
-        # columns_config = {
-        #     '#': st.column_config.Column('#', width=10),
-        #     'Δ': st.column_config.Column('Δ', width=10),
-        # }
-        # tbl = st.dataframe(
-        #     df_filter,
-        #     hide_index=True,
-        #     width='stretch',
-        #     selection_mode='single-row',
-        #     on_select='rerun',
-        #     # height=tbl_height,
-        #     row_height=40,
-        #     column_config=columns_config
-        # )
-
-        ## LOC
-        # if tbl_iloc == None:
-        #     return None
-        # else:
-        #     df_serie = df_filter4.iloc[tbl_iloc].to_dict()
-        #     if col2.button('EDITAR PEDIDO', icon='✏️', width='stretch'):
-        #         edit_pedido(df_serie)
-        #     return df_filter4.index[tbl_iloc]
-
-        ## NEW 
-        ## ____________________________________________________________________________________________________________________________
+    def tbl_hitos(pedido_id: str) -> 'Hitos.Hito':
 
         col_hitos_options, col_hitos_filtros, col_hitos_vista = st.columns(3)
 
@@ -529,6 +557,7 @@ class Hitos:
 
         ## DATAFRAME
         df = get_hitos(pedido_id)
+        hito_nombre: str = None
         # st.write(df)
 
         if vista == 'GANTT':
@@ -557,7 +586,7 @@ class Hitos:
                 # st.write(tl_hitos.selection['points'])
                 if len(tl_hitos.selection['points']) == 1:
                     hito_indx = tl_hitos.selection['points'][0]['curve_number']
-                    hito = data[hito_indx].texto
+                    hito_nombre = data[hito_indx].texto
                     # data[hito_indx].texto
                     # st.write(data[hito_indx].texto)
 
@@ -587,18 +616,39 @@ class Hitos:
                 column_config=columns_config
             )
             tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None
-            hito = df['nombre'].iloc[tbl_iloc] if tbl_iloc != None else None
+            hito_nombre = df['nombre'].iloc[tbl_iloc] if tbl_iloc != None else None
 
         if vista == 'CALENDARIO':
             pass
         
-        if hito:
-            st.write(hito)
+        hito: Hitos.Hito = None
+        
+        if hito_nombre and hito_nombre != pedido_id:
+            hito_dict = df[df['nombre']==hito_nombre].iloc[0].to_dict()
+            hito = Hitos.Hito.from_dict(hito_dict)
+            if hito.grupo != 'GPI':
+                edit_holder.button('EDITAR', width='stretch', icon=':material/edit_square:', key='hito_options_edit', 
+                    on_click=Hitos.edit_hito, kwargs={'hito': hito},
+                )
+
+        return hito
 
 class Acciones:
     @dataclass
     class Accion:
         id: str
+        pedido_id: str
+        causa: str
+        alarma: int
+        info: str
+        accion: str
+        planificador: str
+        responsable: str
+        fecha_accion: datetime
+        fecha_req: datetime
+        estado: int = 0
+        DB: dict = None
+        firm: str = None
 
         def to_dict(self):
             return asdict(self)
@@ -630,7 +680,83 @@ class Acciones:
             if isinstance(data['fecha_fin'], str):
                 data['fecha_fin'] = datetime.strptime(data['fecha_fin'], r'%Y-%m-%d')
             return cls(**data)
+
+    @st.dialog('➕ NUEVA GPI', width='medium')
+    def new(pedido_id: str) -> None:
+        causa = st.selectbox('BUSINESS UNIT', options=[c.value for c in Causas], index=None, accept_new_options=False)
+        fecha_req = st.date_input('FECHA REQUERIDA', value=None, format='YYYY-MM-DD')
+
+        accion = Acciones.Accion(
+            id=None,
+            pedido_id=pedido_id,
+            causa=causa,
+            alarma=None,
+            info=None,
+            accion=None,
+            planificador=None,
+            responsable=None,
+            fecha_accion=datetime.now(),
+            fecha_req=fecha_req,
+            estado=0,
+            DB=None,
+            firm=get_firm(),
+        )
+        contraseña = st.text_input('CONTRASEÑA', value=None)
+        info = st.text_area('INFO / DESCRIPCIÓN', value=None, height=1)
+        fecha_ini = st.date_input('FECHA INICIO', value=None, format='YYYY-MM-DD')
+        fecha_fin = st.date_input('FECHA FIN', value=None, format='YYYY-MM-DD')
+        b_units = get_business_units(st.session_state.bu)['id'].to_list()
+        bu_id = st.selectbox('BUSINESS UNIT', options=b_units, index=None, accept_new_options=False)
+        usuarios = get_usuarios(st.session_state.usuarios)['id'].to_list()
+        planificador = st.selectbox('PLANIFICADOR', options=usuarios, index=None, accept_new_options=False)
+        alarma = st.radio('ALARMA', options=["🟥","🟨","🟩"], index=None, horizontal=True)
+        alarma_mod = Alarmas.get_int(alarma)
+        btn = st.button('CREAR PEDIDO', width='stretch', icon='⚠️')
+        mail = st.checkbox('ENVIAR MAIL')
+        fecha_mod = datetime.now().strftime(r'%Y-%m-%d %H:%M')
     
+        if btn:
+            if not pedido_id or not info or not fecha_ini or not fecha_fin:
+                st.warning("RELLENA LOS DATOS DEL PEDIDOS", icon='⚠️')
+            else:
+                if fecha_fin <= fecha_ini:
+                    st.warning("FECHA DE FIN TIENE QUE SER MAYOR QUE FECHA DE INICIO", icon='⚠️')
+                else:
+                    if not planificador:
+                        st.warning("ES NECESARIO ASIGNAR UN PLANIFICADOR", icon='⚠️')
+                    else:
+                        count = DB.execute('SELECT COUNT (*) FROM pedidos WHERE id=?', [pedido_id], fetch=1)[0]
+                        if count > 0:
+                            st.warning("ESTE PEDIDO YA EXISTE", icon='⚠️')
+                        else:
+                            mod = Modificacion(
+                                fecha=datetime.now(),
+                                info='Creación de pedido',
+                                data=None,
+                                user=st.session_state.login.id
+                            )
+                            pedido = Pedidos.Pedido(
+                                id=pedido_id.upper(),
+                                info=info,
+                                bu_id=bu_id,
+                                planificador=planificador,
+                                fecha_ini=fecha_ini,
+                                fecha_fin=fecha_fin,
+                                contraseña=contraseña,
+                                alarma=alarma_mod,
+                                DB={
+                                    'modificaciones': [mod.to_dict()],
+                                    'xlsx': None,
+                                },
+                            )
+                            DB.insert('pedidos', values=pedido.to_sql())
+                            st.session_state.pedidos += 1
+                            if mail:
+                                send_mail()
+                            st.rerun()
+
+
+
     @st.dialog('NUEVA ACCIÓN', width='medium')
     def form_accion(pedido_id: str):
         # st.file_uploader('pedidosPorPosicion.xlsx', type=['.xlsx'], accept_multiple_files=False)
@@ -689,7 +815,7 @@ class Acciones:
     def detalle_accion(x):
         st.write(x)
 
-    def tbl_acciones(df: pd.DataFrame) -> int:
+    def tbl_acciones_old(df: pd.DataFrame) -> int:
         columns = ['#', 'causa', 'info', 'accion', 'fecha_accion', 'fecha_req', 'planificador', 'responsable', 'estado']
         
         ## OPTIONS
@@ -722,6 +848,39 @@ class Acciones:
 
         return tbl_iloc
 
+    def tbl_acciones(pedido_id: str) -> int:
+        col_options, col_filtros, col_vista = st.columns(3)
+
+        with col_options.expander('OPCIONES', icon='🔧', width='stretch'):
+            st.button('NUEVO', width='stretch', icon=':material/add_box:', on_click=Hitos.new_hito, kwargs={'pedido_id': pedido_id}, key='accion_options_new')
+            edit_holder = st.empty()
+            # templates = get_templates() # BUG: cache?
+            # template = st.selectbox('TEMPLATE', options=templates, index=None)
+            # if template:
+            #     st.button('TEMPLATE', width='stretch', icon=':material/add_box:', on_click=Hitos.template, kwargs={'pedido_id': pedido_id, 'template': template})
+
+        with col_filtros.expander('FILTROS', icon='🔍', width='stretch'):
+            # fltr_hitos_str = st.text_input('fltr_hitos_str', label_visibility='collapsed', icon='🔍')
+            st.write('ALERTAS')
+            # col_r, col_y, col_g = st.columns(3)
+            # # filter_alert = st.radio('ALERTA', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=True)
+            # col_r.checkbox('🟥', value=1) # 🟥🟨🟩
+            # col_y.checkbox('🟨', value=1) # 🟥🟨🟩
+            # col_g.checkbox('🟩', value=1) # 🟥🟨🟩
+            # st.write('ESTADO')
+            # col_e1, col_e2, col_e3, col_e4 = st.columns(4)
+            # # filter_alert = st.radio('ALERTA', options=["All", "🟥","🟨","🟩"], label_visibility='visible', width='content', horizontal=True)
+            # col_e1.checkbox('⏳', value=1) # ⏳🔍⏫✅
+            # col_e2.checkbox('🔍', value=1) 
+            # col_e3.checkbox('⏫', value=1)
+            # col_e4.checkbox('✅', value=0)
+
+        # vistas: list = [
+        #     'GANTT', 
+        #     'TABLA', 
+        #     # 'CALENDARIO'
+        # ]
+        # vista = col_vista.selectbox('VISTA', options=vistas, index=0, accept_new_options=False, label_visibility='collapsed')
 
 
 ## PAGE
@@ -738,18 +897,46 @@ if pedido_loc != None:
     pedido = Pedidos.Pedido.from_dict(df_pedidos.loc[pedido_loc].to_dict())
 
     st.container(border=False, height=20) # Separador
-    tab_hitos, tab_acciones, tab_gpilog = st.tabs(['HITOS', "PDCA's", 'GPI Log', ])
+    tab_hitos, tab_acciones, tab_gpilog = st.tabs(['HITOS', "PDCA", 'GPI Log', ])
 
     ## HITOS
     with tab_hitos:
         # df_hitos = get_hitos(pedido.id)
         # hito_loc = Hitos.tbl_hitos(df_hitos)
 
-        hito_loc = Hitos.tbl_hitos(pedido.id)
+        hito: Hitos.Hito = Hitos.tbl_hitos(pedido.id)
         # st.write(hito_loc)
 
+        if hito and hito.grupo != 'GPI':
+            st.container(border=False, height=20) # Separador
+            st.write('Log:')
+            with st.container(border=True):
+                modificaciones = hito.DB.get('modificaciones', None)
+                if modificaciones:
+                    for mod in modificaciones:
+                        # st.write(mod)
+                        fecha = mod.get('fecha', None)
+                        info = mod.get('info', None)
+                        user = mod.get('user', None)
+                        title = f'{fecha} / {user}'
+
+                        st.write(title)
+                        with st.container(border=True):
+                            st.caption(info)
+                            data = mod.get('data', None)
+                            if data:
+                                rows = []
+                                for key, values in data.items():
+                                    rows.append({
+                                        "PARAMETRO": key,
+                                        "ANTERIOR": str(values.get("old")),
+                                        "NUEVO": str(values.get("new"))
+                                    })
+                                df = pd.DataFrame(rows)
+                                st.dataframe(pd.DataFrame(rows), hide_index=True)
+
     ## PDCAs
-    pass
+    Acciones.tbl_acciones(pedido.id)
 
     ## GPI Log
     with tab_gpilog:

@@ -62,35 +62,32 @@ from functions import *
 
 st.logo(r'assets/logo_extend.svg', size='large')
 
-UI.my_calendar()
 
-st.header('TOP3 HITOS', divider='blue')
+## TOP3 HITOS
+st.header('TOP3 BACKLOG', divider='blue')
 
 headers = DB.execute('SELECT * FROM view_bi_hitos_top3 LIMIT 0', fetch=4)
 data = DB.select('SELECT * FROM view_bi_hitos_top3')
 df_bi = pd.DataFrame(data, columns=headers)
-# st.write(df_bi)
-
 
 a, b, c = st.columns(3)
-a.metric(df_bi['info'].iat[0], df_bi['bu_id'].iat[0], f'{df_bi['Δ'].iat[0]} Días', border=True, width='stretch')
-b.metric(df_bi['info'].iat[1], df_bi['bu_id'].iat[1], f'{df_bi['Δ'].iat[1]} Días', border=True, width='stretch')
-c.metric(df_bi['info'].iat[2], df_bi['bu_id'].iat[2], f'{df_bi['Δ'].iat[2]} Días', border=True, width='stretch')
+a.metric(df_bi['nombre'].iat[0], df_bi['bu_id'].iat[0], f'{df_bi['Δ_dias'].iat[0]} Días', border=True, width='stretch')
+b.metric(df_bi['nombre'].iat[1], df_bi['bu_id'].iat[1], f'{df_bi['Δ_dias'].iat[1]} Días', border=True, width='stretch')
+c.metric(df_bi['nombre'].iat[2], df_bi['bu_id'].iat[2], f'{df_bi['Δ_dias'].iat[2]} Días', border=True, width='stretch')
 
-
+## TOP3 PDCAs
 st.container(border=False, height=20) # Separador
-st.header('TOP3 PDCAs', divider='red')
+st.header('TOP3 ACCIONES', divider='red')
 
-
+## TOP10 Caminos Criticos
 st.container(border=False, height=20) # Separador
 st.header('TOP10 Caminos Criticos', divider='orange')
 
-df = pd.DataFrame(
-    {
-        'h1': [1,2,3,4],
-        'h2': ['1','2','3','4'],
-    }
-)
+
+## CALENDARIO
+st.container(border=False, height=20) # Separador
+st.header('CALENDARIO', divider='orange')
+UI.my_calendar()
 
 
 

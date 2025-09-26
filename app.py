@@ -3,7 +3,7 @@ import streamlit as st
 from functions import *
 
 st.set_page_config(
-    page_title="PODUCTION MANAGER",
+    page_title="POMT", # PODUCTION MANAGER
     # page_icon='🎛️',
     page_icon=r'assets/logo.svg',
     layout="wide", # "centered",
@@ -57,8 +57,8 @@ pg_pedidos = st.Page(r'navigation/pedidos.py', title='GPI', icon=':material/box:
 pg_productos = st.Page(r'navigation/productos.py', title='PRODUCTOS', icon=':material/barcode_reader:')
 pg_business_unit = st.Page(r'navigation/busines_unit.py', title='BUSINESS UNIT', icon=':material/business_center:')
 pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARDS', icon=':material/monitoring:')
-pg_chat_ia = st.Page(r'navigation/chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
-pg_gantt = st.Page(r'navigation/gantt.py', title='GANTT', icon=':material/smart_toy:')
+# pg_chat_ia = st.Page(r'navigation/chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
+# pg_gantt = st.Page(r'navigation/gantt.py', title='GANTT', icon=':material/smart_toy:')
 
 
 
@@ -86,9 +86,9 @@ if __name__ == '__main__':
                 pg_pedidos,
             ],
             'UNDER TEST': [
-                pg_chat_ia,
+                # pg_chat_ia,
                 pg_productos,
-                pg_gantt,
+                # pg_gantt,
             ]
         }
 

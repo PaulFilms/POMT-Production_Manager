@@ -16,7 +16,7 @@ DB = SQL(path_db=path_db)
 # if not 'bu' in st.session_state: st.session_state.bu = 1
 
 def tbl_bunits(df: pd.DataFrame) -> int:
-    columns = ['id', 'info', 'total_pedidos', '🟥', '🟨', '🟩']
+    columns = ['id', 'info', '∑_GPIs', '🟥', '🟨', '🟩']
     # for c in Causas: columns.append(c.name)
 
     ## OPTIONS
@@ -39,7 +39,11 @@ def tbl_bunits(df: pd.DataFrame) -> int:
         df_filter2 = df_filter1
     
     ## TABLE
-    columns_config = {}
+    columns_config = {
+        'id': st.column_config.Column('BU', width='medium', pinned=True),
+        'info': st.column_config.Column('DESCRIPCIÓN', width='large'),
+        '∑_GPIs': st.column_config.Column('∑ GPIs', width='small'),
+    }
     for a in ['🟥','🟨','🟩']:
         columns_config[a] = st.column_config.Column(a, width=10)
 
@@ -49,7 +53,7 @@ def tbl_bunits(df: pd.DataFrame) -> int:
         width='stretch',
         selection_mode='single-row',
         on_select='rerun',
-        height=tbl_height,
+        # height=tbl_height,
         row_height=40,
         column_config=columns_config
     )
@@ -81,8 +85,34 @@ st.logo(r'assets\logo_extend.svg', size='large')
 
 df_bunits = get_business_units(st.session_state.bu)
 bunit_iloc = tbl_bunits(df_bunits)
+bunit_id = df_bunits['id'].iloc[bunit_iloc] if bunit_iloc is not None else None
+st.write(bunit_id)
 
-if bunit_iloc is not None:
+if bunit_id:
+    tab_pedidos, tab_hitos, tab_acciones, tab_usuarios = st.tabs(["GPI's", "HITOS", "PDCA's", "USUARIOS", ])
+
+    df_pedidos = get_pedidos(st.session_state.pedidos)
+    df_pedidos = df_pedidos[df_pedidos['bu_id'] == bunit_id]
+
+    with tab_pedidos:
+        st.write(df_pedidos)
+
+    with tab_hitos:
+        sql = f"""
+        SELECT 
+            hitos.*, 
+            pedidos.bu_id
+        FROM hitos
+            LEFT JOIN pedidos ON hitos.pedido_id = pedidos.id 
+        WHERE bu_id='{bunit_id}'
+        ORDER BY hitos.fecha_fin DESC
+        """
+        headers = DB.execute(sql + " LIMIT 0;", fetch=1)
+        data = DB.select(sql)
+        df_hitos = pd.DataFrame(data, columns=headers)
+        columns = []
+        st.write(df_hitos)
+
 #     bu_id = df_bu['id'].iloc[iloc_bu]
 #     pedidos_columns = DB.execute('SELECT * FROM pedidos LIMIT 0', fetch=4)
 #     df_pedidos = pd.DataFrame(
@@ -90,8 +120,6 @@ if bunit_iloc is not None:
 #         columns=pedidos_columns
 #     )
 #     df_pedidos['#'] = df_pedidos['alarma'].map(Alarmas.id_by_color())
-
-    tab_usuarios, tab_pedidos, acciones = st.tabs(["USUARIOS", "GPI's", "ACCIONES"])
 
 #     with tab_usuarios:
 #         time_data = {

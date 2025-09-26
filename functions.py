@@ -83,6 +83,7 @@ class Alarmas(Enum):
     red     = ("🟥", 1)
     yellow  = ("🟨", 2)
     green   = ("🟩", 3)
+    grey    = ("⬜", 4)
 
     @classmethod
     def id_by_color(cls):
@@ -113,22 +114,40 @@ class Estados(Enum):
     escalar = ('⏫', 3)
     completo = ('✅', 4)
 
+    def __init__(self, icon: str, id: int):
+        self.icon = icon
+        self.id = id
+
     @classmethod
     def get_estado(cls, estado: int) -> str:
         if not isinstance(estado, int):
             return None
-        if estado not in [e.value[1] for e in cls]:
+        if estado not in [e.id for e in cls]:
             return None
         else:
-            return [e.value[0] for e in cls][estado-1]
+            return [e.icon for e in cls][estado-1]
+    
+    @classmethod
+    def get_id(cls, estado: str) -> int:
+        if not estado or not isinstance(estado, str):
+            return None
+        if estado not in [e.icon for e in cls]:
+            return None
+        else:
+            return [e.icon for e in cls].index(estado) + 1
 
     @classmethod
     def get_estados(cls) -> List[str]:
         return [e.name for e in cls]
+    
+    @classmethod
+    def get_estados_icon(cls) -> List[str]:
+        return [e.icon for e in cls]
+    
 
     @classmethod
     def id_by_estado(cls):
-        return {a.value[1]: a.value[0] for a in cls}
+        return {a.id: a.value[0] for a in cls}
 
 class Causas(Enum):
     LM = 'LM  |  LISTA DE MATERIALES'
@@ -236,6 +255,32 @@ def get_usuarios(count: int = 0) -> 'pd.DataFrame':
         data = supabase.table(table).select('*').execute().data
         return pd.DataFrame(data)
 
+# @st.cache_data
+def get_business_units(count: int = 0) -> 'pd.DataFrame':
+    '''
+    st.session_state.bu
+    '''
+    headers = DB.execute("SELECT * FROM view_business_unit LIMIT 0", fetch=4)
+    data = DB.select('SELECT * FROM view_business_unit')
+    df = pd.DataFrame(data, columns=headers)
+    return df
+
+# @st.cache_data
+def get_pedidos(count: int = 0) -> 'pd.DataFrame':
+    '''
+    st.session_state.pedidos
+    '''
+    table = 'view_pedidos'
+    headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
+    data = DB.select(f'SELECT * FROM {table}')
+    df = pd.DataFrame(data, columns=headers)
+    df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    df['DB'] = df['DB'].apply(safe_json_loads)
+    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
+    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
+    df['contraseña'] = df['contraseña'].apply(safe_contraseña)
+    return df
+
 def get_usuarios_by_dept(departamento_id: str):
     if not departamento_id:
         return get_usuarios(st.session_state.usuarios)['id'].to_list()
@@ -245,44 +290,6 @@ def get_usuarios_by_dept(departamento_id: str):
         return None
     DB: dict = json.loads(df_DB)
     return DB.get('usuario_id', None)
-
-# @st.cache_data
-def get_business_units(count: int = 0) -> 'pd.DataFrame':
-    '''
-    st.session_state.bu
-    '''
-    headers = DB.execute("SELECT * FROM view_bunit_count LIMIT 0", fetch=4)
-    data = DB.select('SELECT * FROM view_bunit_count')
-    df = pd.DataFrame(data, columns=headers)
-    # df['🟥'] = df['alarma_1']
-    # df['🟨'] = df['alarma_2']
-    # df['🟩'] = df['alarma_3']
-    return df
-
-# @st.cache_data
-def get_pedidos(count: int = 0) -> 'pd.DataFrame':
-    '''
-    st.session_state.pedidos
-    '''
-    # headers = DB.execute("SELECT * FROM view_pedidos_count LIMIT 0", fetch=4)
-    # data = DB.select('SELECT * FROM view_pedidos_count')
-    table = 'view_pedidos'
-    headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
-    data = DB.select(f'SELECT * FROM {table}')
-
-    df = pd.DataFrame(data, columns=headers)
-    df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    df['DB'] = df['DB'].apply(safe_json_loads)
-    # df['FECHA_INI'] = df['fecha_ini'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
-    # df['FECHA_FIN'] = df['fecha_fin'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
-    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
-    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
-    df['contraseña'] = df['contraseña'].apply(safe_contraseña)
-    # df['∑'] = df['total_acciones']
-    # for c in Causas:
-    #     df[c.name] = df[c.name].map(Alarmas.id_by_color())
-    
-    return df
 
 def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     '''
@@ -298,7 +305,6 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
         df['Δ'] = (df["fecha_fin"] - pd.Timestamp(datetime.today().date())).dt.days
     else:
         df['Δ'] = pd.Series(dtype='int')
-    # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
     df['DB'] = df['DB'].apply(safe_json_loads)
@@ -314,7 +320,6 @@ def get_acciones(pedido_id: str) -> 'pd.DataFrame':
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['fecha_accion'] = df['fecha_accion'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
     df['fecha_req'] = df['fecha_req'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
-    # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
     df['DB'] = df['DB'].apply(safe_json_loads)
@@ -657,6 +662,10 @@ class UI:
 
         # Mostrar gráfico en Streamlit
         st.pyplot(fig)
+
+    def df_calendar():
+        pass
+
 
 class HTML:
     def generar_card(titulo, contenido):
