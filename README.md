@@ -28,6 +28,7 @@
 
 ## LINKS
 
+- [GITHUB PROJECT](https://github.com/users/PaulFilms/projects/1)
 - [FIGMA](https://www.figma.com/board/JhNFFjvvTGsrv902T1vfcU/PPI?node-id=0-1&t=nowQMEeaTUpbzTci-1)
 - [STREAMLIT API](https://docs.streamlit.io/develop/api-reference)
 

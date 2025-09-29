@@ -124,17 +124,56 @@ DROP VIEW IF EXISTS "main"."view_business_unit";
 DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 
 -- DROP VIEW IF EXISTS "main"."view_pedidos";
-CREATE VIEW view_pedidos AS
-SELECT
-	pedidos.*,
-	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS '∑_hitos', -- Sin finalizados
-	COUNT(CASE WHEN hitos.pedido_id<>4 THEN 1 ELSE 0 END) AS '🚦1', -- Sin finalizados
-FROM pedidos
-	LEFT JOIN hitos ON pedidos.id = hitos.pedido_id
-GROUP BY hitos.pedido_id;
+CREATE VIEW IF NOT EXISTS view_pedidos AS
+SELECT 
+    p.*,
+
+    -- Conteo de hitos (estado ≠ 4)
+    COALESCE(h.total_hitos, 0) AS "∑_hitos",
+
+    -- Conteo de acciones (estado ≠ 4)
+    COALESCE(a.total_acciones, 0) AS "∑_acciones",
+
+    -- Mínimos por causa
+    COALESCE(a.LM, NULL) AS LM,
+    COALESCE(a.DT, NULL) AS DT,
+    COALESCE(a.PL, NULL) AS PL,
+    COALESCE(a.PR, NULL) AS PR,
+    COALESCE(a.EM, NULL) AS EM,
+    COALESCE(a.CA, NULL) AS CA
+
+FROM pedidos p
+
+-- Subconsulta de hitos
+LEFT JOIN (
+    SELECT 
+        pedido_id,
+        COUNT(*) AS total_hitos
+    FROM hitos
+    WHERE estado <> 4 OR estado IS NULL
+    GROUP BY pedido_id
+) h ON p.id = h.pedido_id
+
+-- Subconsulta de acciones
+LEFT JOIN (
+    SELECT 
+        pedido_id,
+        COUNT(*) AS total_acciones,
+        MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
+        MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
+        MIN(CASE WHEN causa = 'PL' THEN alarma END) AS PL,
+        MIN(CASE WHEN causa = 'PR' THEN alarma END) AS PR,
+        MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
+        MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
+    FROM acciones
+    WHERE estado <> 4 OR estado IS NULL
+    GROUP BY pedido_id
+) a ON p.id = a.pedido_id
+
+ORDER BY p.id;
 
 -- DROP VIEW IF EXISTS "main"."view_business_unit";
-CREATE VIEW view_business_unit AS
+CREATE VIEW IF NOT EXISTS view_business_unit AS
 SELECT 
 	bu.*,
     COUNT(p.id) AS "∑_GPIs",
@@ -151,7 +190,7 @@ ORDER BY
     "∑_GPIs" DESC;
 
 -- DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
-CREATE VIEW view_bi_hitos_top3 AS
+CREATE VIEW IF NOT EXISTS view_bi_hitos_top3 AS
 SELECT 
 	hitos.*,
 	b.id as bu_id,
@@ -162,32 +201,3 @@ FROM hitos
 WHERE hitos.estado <> 4
 ORDER BY hitos.fecha_fin ASC
 LIMIT 3;
-
--- DROP VIEW IF EXISTS "main"."view_pedidos_count";
--- CREATE VIEW view_pedidos_count AS
--- SELECT 
---     p.*,
---     COALESCE(a.total_acciones, 0) AS total_acciones,
---     COALESCE(a.LM, NULL) AS LM,
---     COALESCE(a.DT, NULL) AS DT,
---     COALESCE(a.PL, NULL) AS PL,
---     COALESCE(a.PR, NULL) AS PR,
---     COALESCE(a.EM, NULL) AS EM,
--- 	COALESCE(a.CA, NULL) AS CA
--- FROM 
---     pedidos p
--- LEFT JOIN (
---     SELECT 
---         pedido_id,
---         COUNT(*) AS total_acciones,
---         MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
---         MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
---         MIN(CASE WHEN causa = 'PL' THEN alarma END) AS PL,
---         MIN(CASE WHEN causa = 'PR' THEN alarma END) AS PR,
---         MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
--- 		MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
---     FROM acciones
--- 	WHERE estado <> 4 OR estado IS NULL
---     GROUP BY pedido_id
--- ) a ON p.id = a.pedido_id
--- ORDER BY total_acciones DESC;

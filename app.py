@@ -19,7 +19,7 @@ def session_state_start():
     if not 'hitos' in st.session_state: st.session_state.hitos = 1
     if not 'bu' in st.session_state: st.session_state.bu = 1
     if not 'departamentos' in st.session_state: st.session_state.departamentos = 1
-    if not 'action' in st.session_state: st.session_state.action = 1
+    if not 'acciones' in st.session_state: st.session_state.acciones = 1
     if not 'productos' in st.session_state: st.session_state.productos = 1
 
 if not os.path.exists('temp'): os.mkdir('temp')

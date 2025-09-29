@@ -20,7 +20,10 @@ import plotly.graph_objects as go
 
 SQLITE: bool = 1
 if SQLITE:
-    path_db = r"PPI.db"
+    # path_db = r"PPI.db"
+    path_file = 'POMT_production_manager.db'
+    path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
+    path_db = os.path.join(path_net, path_file)
     DB = SQL(path_db=path_db)
 
 SUPABASE: bool = 0
@@ -157,6 +160,12 @@ class Causas(Enum):
     EM = 'EM  |  ENTREGA MANUFACTURING EN RIESGO'
     CA = 'CA  |  CAMBIO DE ALCANCE'
 
+    def get_ids() -> List[str]:
+        return [c.name for c in Causas]
+    
+    def get_values() -> List[str]:
+        return [c.value for c in Causas]
+
 @dataclass
 class Modificacion:
     fecha: datetime
@@ -274,11 +283,13 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
     data = DB.select(f'SELECT * FROM {table}')
     df = pd.DataFrame(data, columns=headers)
-    df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['DB'] = df['DB'].apply(safe_json_loads)
     df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
     df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
     df['contraseña'] = df['contraseña'].apply(safe_contraseña)
+    df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    for c in Causas:
+        df[c.name] = df[c.name].map(Alarmas.id_by_color())
     return df
 
 def get_usuarios_by_dept(departamento_id: str):
@@ -312,14 +323,14 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
 
 def get_acciones(pedido_id: str) -> 'pd.DataFrame':
     '''
-    st.session_state.action
+    st.session_state.acciones
     '''
     headers = DB.execute("SELECT * FROM acciones LIMIT 0;", fetch=4)
     data = DB.select(f'SELECT * FROM acciones WHERE pedido_id="{pedido_id}";')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    df['fecha_accion'] = df['fecha_accion'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
-    df['fecha_req'] = df['fecha_req'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
+    df['fecha_accion'] = df['fecha_accion'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
+    df['fecha_req'] = df['fecha_req'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
     df['DB'] = df['DB'].apply(safe_json_loads)
@@ -338,17 +349,6 @@ def get_productos(count: int = 0):
 def get_templates(count: int = 0) -> List[str]:
     data = DB.select("SELECT DISTINCT(template) FROM templates;")
     return [d[0] for d in data]
-
-def report_pedidos():
-    df = get_pedidos(st.session_state.pedidos)
-    df = df.drop(['DB', '∑', '#', 'fecha_ini', 'fecha_fin'], axis=1)
-    path = r'temp/report_pedidos.xlsx'
-    if os.path.exists(path):
-        os.remove(path)
-    DF_REPORT(path=path, dataFrame=df)
-    with open(path, "rb") as f:
-        archivo_bytes = f.read()
-    return archivo_bytes
 
 
 class UI:
