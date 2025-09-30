@@ -24,7 +24,8 @@ if SQLITE:
     path_file = 'POMT_production_manager.db'
     path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
     path_db = os.path.join(path_net, path_file)
-    DB = SQL(path_db=path_db)
+    # DB = SQL(path_db=path_db)
+    DB = SQL(path_db=path_file)
 
 SUPABASE: bool = 0
 if SUPABASE:
@@ -74,6 +75,7 @@ class Usuario:
 
     @classmethod
     def get_form_sql(cls, sql_data: tuple) -> 'Usuario':
+        sql_data = list(sql_data)
         if sql_data[6] and isinstance(sql_data[6], str):
             sql_data[6] = json.loads(sql_data[6])
         return cls(*sql_data)
@@ -302,18 +304,65 @@ def get_usuarios_by_dept(departamento_id: str):
     DB: dict = json.loads(df_DB)
     return DB.get('usuario_id', None)
 
+@dataclass
+class Hito:
+    id: int
+    pedido_id: str
+    grupo: str
+    nombre: str
+    fecha_req: datetime
+    fecha_plan: datetime
+    responsable: str
+    alarma: int = None
+    estado: int = None
+    info: str = None
+    DB: dict = None
+    firm: str = None
+
+    def to_dict(self):
+        return asdict(self)
+    
+    def to_sql(self) -> Dict[str, Any]:
+        '''
+        Devuelve un diccionario de valores para INSERT / UPDATE 
+        '''
+        if isinstance(self.fecha_req, datetime):
+            self.fecha_req = self.fecha_req.strftime(r'%Y-%m-%d')
+        if isinstance(self.fecha_plan, datetime):
+            self.fecha_plan = self.fecha_plan.strftime(r'%Y-%m-%d')
+        if not self.DB:
+            self.DB = {}
+        for k, v in self.DB.items():
+            if isinstance(v, datetime):
+                self.DB[k] = v.strftime(r'%Y-%m-%d %H:%M')
+        self.DB = json.dumps(self.DB)
+        if not self.firm:
+            self.firm = f'{st.session_state.login.id} / {datetime.now().strftime(r'%Y-%m-%d %H:%M')}'
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, values: Dict[str, Any]) -> 'Hitos.Hito':
+        cls_fields = {f.name for f in fields(cls)}
+        data = {k: v for k, v in values.items() if k in cls_fields}
+        if isinstance(data['fecha_req'], str):
+            data['fecha_req'] = datetime.strptime(data['fecha_req'], r'%Y-%m-%d')
+        if isinstance(data['fecha_plan'], str):
+            data['fecha_plan'] = datetime.strptime(data['fecha_plan'], r'%Y-%m-%d')
+        return cls(**data)
+
 def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     '''
     st.session_state.hitos
     '''
-    headers = DB.execute("SELECT * FROM hitos LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM hitos WHERE pedido_id="{pedido_id}";')
+    tabla = 'view_hitos'
+    headers = DB.execute(f"SELECT * FROM {tabla} LIMIT 0;", fetch=4)
+    data = DB.select(f'SELECT * FROM {tabla} WHERE pedido_id="{pedido_id}";')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
-    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
+    df['fecha_req'] = df['fecha_req'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
+    df['fecha_plan'] = df['fecha_plan'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
     if not df.empty:
-        df['Δ'] = (df["fecha_fin"] - pd.Timestamp(datetime.today().date())).dt.days
+        df['Δ'] = (df["fecha_plan"] - pd.Timestamp(datetime.today().date())).dt.days
     else:
         df['Δ'] = pd.Series(dtype='int')
     df['estado_id'] = df['estado']
@@ -321,12 +370,12 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
-def get_acciones(pedido_id: str) -> 'pd.DataFrame':
+def get_acciones(hito_id: int) -> 'pd.DataFrame':
     '''
     st.session_state.acciones
     '''
     headers = DB.execute("SELECT * FROM acciones LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM acciones WHERE pedido_id="{pedido_id}";')
+    data = DB.select(f'SELECT * FROM acciones WHERE hito_id="{hito_id}";')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['fecha_accion'] = df['fecha_accion'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
@@ -622,19 +671,18 @@ class UI:
         
         # Cambiar la fuente globalmente a 'DejaVu Sans' (viene con matplotlib)
         
-
         # Tu DB
         columns = DB.execute('SELECT * FROM hitos LIMIT 0', fetch=4)
         data = DB.select('SELECT * FROM hitos')
         df = pd.DataFrame(data, columns=columns)
 
         # Convertir fecha_fin a datetime
-        df['fecha_fin'] = pd.to_datetime(df['fecha_fin'])
-        alarma_por_fecha = df.groupby('fecha_fin')['alarma'].min()
+        df['fecha_plan'] = pd.to_datetime(df['fecha_plan'])
+        alarma_por_fecha = df.groupby('fecha_plan')['alarma'].min()
 
         # Calcular valores por defecto para date_input
-        min_fecha = df['fecha_fin'].min()
-        max_fecha = df['fecha_fin'].max()
+        min_fecha = df['fecha_plan'].min()
+        max_fecha = df['fecha_plan'].max()
 
         # Restar 1 mes al mínimo y sumar 1 mes al máximo usando relativedelta
         fecha_desde_def = min_fecha - relativedelta(months=1)

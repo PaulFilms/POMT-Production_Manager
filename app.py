@@ -2,13 +2,13 @@ import os
 import streamlit as st
 from functions import *
 
-st.set_page_config(
-    page_title="POMT", # PODUCTION MANAGER
-    # page_icon='🎛️',
-    page_icon=r'assets/logo.svg',
-    layout="wide", # "centered",
-    initial_sidebar_state= "auto" # "collapsed"
-)
+# st.set_page_config(
+#     page_title="POMT", # PODUCTION MANAGER
+#     # page_icon='🎛️',
+#     page_icon=r'assets/logo.svg',
+#     layout="wide", # "centered",
+#     initial_sidebar_state= "auto" # "collapsed"
+# )
 
 def session_state_start():
     if not 'login' in st.session_state: st.session_state.login = None
@@ -21,8 +21,6 @@ def session_state_start():
     if not 'departamentos' in st.session_state: st.session_state.departamentos = 1
     if not 'acciones' in st.session_state: st.session_state.acciones = 1
     if not 'productos' in st.session_state: st.session_state.productos = 1
-
-if not os.path.exists('temp'): os.mkdir('temp')
 
 @st.dialog('LOGIN', width='small')
 def login():
@@ -54,6 +52,7 @@ pg_logout = st.Page(logout, title='Log-out', icon=':material/logout:', default=F
 pg_home = st.Page(r'navigation/home.py', title='HOME', icon=':material/home:', default=True)
 pg_user = st.Page(r'navigation/user.py', title='USER', icon=':material/account_circle:', default=True)
 pg_pedidos = st.Page(r'navigation/pedidos.py', title='GPI', icon=':material/box:')
+pg_entregas = st.Page(r'navigation/entregas.py', title='PLAN ENTREGAS', icon=':material/delivery_truck_speed:')
 pg_productos = st.Page(r'navigation/productos.py', title='PRODUCTOS', icon=':material/barcode_reader:')
 pg_business_unit = st.Page(r'navigation/busines_unit.py', title='BUSINESS UNIT', icon=':material/business_center:')
 pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARDS', icon=':material/monitoring:')
@@ -63,6 +62,16 @@ pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARD
 
 
 if __name__ == '__main__':
+
+    st.set_page_config(
+        page_title="POMT", # PODUCTION MANAGER
+        # page_icon='🎛️',
+        page_icon=r'assets/logo.svg',
+        layout="wide", # "centered",
+        initial_sidebar_state= "auto" # "collapsed"
+    )
+
+    if not os.path.exists('temp'): os.mkdir('temp')
 
     ## LOGIN / ROLES
 
@@ -84,6 +93,7 @@ if __name__ == '__main__':
                 pg_bi_dashboards,
                 pg_business_unit,
                 pg_pedidos,
+                pg_entregas,
             ],
             'UNDER TEST': [
                 # pg_chat_ia,

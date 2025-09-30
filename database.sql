@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS "pedidos" (
 	"contraseña"	TEXT,
 	"planificador"	TEXT,
 	"fecha_ini"	TEXT DEFAULT '2025-01-01',
-	"fecha_fin"	TEXT DEFAULT '2025-01-01',
+	"fecha_fin"	TEXT DEFAULT '2026-01-01',
 	"alarma"	INTEGER,
 	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
@@ -44,12 +44,13 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 	"id"	INTEGER NOT NULL UNIQUE,
 	"pedido_id"	TEXT NOT NULL,
 	"grupo"	TEXT,
-	"info"	TEXT,
-	"fecha_ini"	TEXT DEFAULT '2025-01-01',
-	"fecha_fin"	TEXT DEFAULT '2025-01-01',
+	"nombre"	TEXT NOT NULL,
+	"fecha_req"	TEXT DEFAULT '2025-01-01',
+	"fecha_plan"	TEXT DEFAULT '2025-01-01',
 	"responsable"	TEXT,
 	"alarma"	INTEGER DEFAULT 0,
 	"estado"	INTEGER DEFAULT 0,
+	"info"	TEXT,
 	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT),
@@ -58,8 +59,8 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 
 CREATE TABLE IF NOT EXISTS "acciones" (
 	"id"	INTEGER NOT NULL UNIQUE,
-	"pedido_id"	TEXT NOT NULL,
-	"causa"	TEXT,
+	"hito_id"	INTEGER NOT NULL,
+	"causa"	TEXT NOT NULL,
 	"alarma"	INTEGER,
 	"info"	TEXT,
 	"accion"	TEXT,
@@ -67,11 +68,11 @@ CREATE TABLE IF NOT EXISTS "acciones" (
 	"responsable"	TEXT,
 	"fecha_accion"	TEXT DEFAULT '2025-01-01',
 	"fecha_req"	INTEGER DEFAULT '2025-01-01',
-	"estado"	INTEGER DEFAULT 0,
+	"estado"	INTEGER DEFAULT 1,
 	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT),
-	FOREIGN KEY("pedido_id") REFERENCES "pedidos"("id")
+	FOREIGN KEY("hito_id") REFERENCES "hitos"("id")
 );
 
 CREATE TABLE IF NOT EXISTS "empresas" (
@@ -100,26 +101,39 @@ CREATE TABLE IF NOT EXISTS "productos" (
 	PRIMARY KEY("id")
 );
 
-CREATE TABLE IF NOT EXISTS "templates" (
-	"id"	INTEGER NOT NULL UNIQUE,
-	"template"	TEXT NOT NULL,
-	"nombre"	TEXT NOT NULL,
-	"orden"	INTEGER NOT NULL,
-	"porcentage"	INTEGER NOT NULL,
-	"info"	TEXT,
-	PRIMARY KEY("id")
-)
+-- CREATE TABLE "entregas" (
+-- 	"id"	INTEGER,
+-- 	"producto_id"	TEXT,
+-- 	"hito_id"	TEXT,
+-- 	"fecha_req"	TEXT DEFAULT '2025-01-01',
+-- 	"fecha_plan"	TEXT DEFAULT '2025-01-01',
+-- 	"estado"	INTEGER DEFAULT 0,
+-- 	"info"	TEXT,
+-- 	"DB"	BLOB DEFAULT '{}',
+-- 	"firm"	TEXT
+-- )
 
-DROP INDEX IF EXISTS "main"."indx_templates";
-CREATE INDEX "indx_templates" ON "templates" (
-	"template"	ASC,
-	"orden"	ASC
-);
+-- CREATE TABLE IF NOT EXISTS "templates" (
+-- 	"id"	INTEGER NOT NULL UNIQUE,
+-- 	"template"	TEXT NOT NULL,
+-- 	"nombre"	TEXT NOT NULL,
+-- 	"orden"	INTEGER NOT NULL,
+-- 	"porcentage"	INTEGER NOT NULL,
+-- 	"info"	TEXT,
+-- 	PRIMARY KEY("id")
+-- )
+
+-- DROP INDEX IF EXISTS "main"."indx_templates";
+-- CREATE INDEX "indx_templates" ON "templates" (
+-- 	"template"	ASC,
+-- 	"orden"	ASC
+-- );
 
 /* VIEWS
 ________________________________________________________________________________________________________________________________ */
 
 DROP VIEW IF EXISTS "main"."view_pedidos";
+DROP VIEW IF EXISTS "main"."view_hitos";
 DROP VIEW IF EXISTS "main"."view_business_unit";
 DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 
@@ -147,6 +161,7 @@ FROM pedidos p
 -- Subconsulta de hitos
 LEFT JOIN (
     SELECT 
+		id,
         pedido_id,
         COUNT(*) AS total_hitos
     FROM hitos
@@ -157,7 +172,7 @@ LEFT JOIN (
 -- Subconsulta de acciones
 LEFT JOIN (
     SELECT 
-        pedido_id,
+        hito_id,
         COUNT(*) AS total_acciones,
         MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
         MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
@@ -167,10 +182,44 @@ LEFT JOIN (
         MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
     FROM acciones
     WHERE estado <> 4 OR estado IS NULL
-    GROUP BY pedido_id
-) a ON p.id = a.pedido_id
+    GROUP BY hito_id
+) a ON h.id = a.hito_id
 
 ORDER BY p.id;
+
+-- DROP VIEW IF EXISTS "main"."view_hitos";
+CREATE VIEW IF NOT EXISTS view_hitos AS
+SELECT 
+	hitos.*,
+	
+    -- Conteo de acciones (estado ≠ 4)
+    COALESCE(a.∑_acciones, 0) AS "∑_acciones",
+
+    -- Mínimos por causa
+    COALESCE(a.LM, NULL) AS LM,
+    COALESCE(a.DT, NULL) AS DT,
+    COALESCE(a.PL, NULL) AS PL,
+    COALESCE(a.PR, NULL) AS PR,
+    COALESCE(a.EM, NULL) AS EM,
+    COALESCE(a.CA, NULL) AS CA
+FROM hitos
+
+LEFT JOIN (
+	SELECT
+		hito_id,
+		COUNT(*) AS "∑_acciones",
+        MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
+        MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
+        MIN(CASE WHEN causa = 'PL' THEN alarma END) AS PL,
+        MIN(CASE WHEN causa = 'PR' THEN alarma END) AS PR,
+        MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
+        MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
+	FROM acciones
+	WHERE estado <> 4 OR estado IS NULL
+	GROUP BY hito_id
+) a ON hitos.id=a.hito_id
+
+ORDER BY hitos.id;
 
 -- DROP VIEW IF EXISTS "main"."view_business_unit";
 CREATE VIEW IF NOT EXISTS view_business_unit AS
@@ -194,10 +243,10 @@ CREATE VIEW IF NOT EXISTS view_bi_hitos_top3 AS
 SELECT 
 	hitos.*,
 	b.id as bu_id,
-	CAST(julianday(hitos.fecha_fin) - julianday('now') AS INTEGER) AS "Δ_dias"
+	CAST(julianday(hitos.fecha_plan) - julianday('now') AS INTEGER) AS "Δ_dias"
 FROM hitos
 	INNER JOIN pedidos p ON hitos.pedido_id = p.id
 	INNER JOIN business_unit b ON p.bu_id = b.id
 WHERE hitos.estado <> 4
-ORDER BY hitos.fecha_fin ASC
+ORDER BY hitos.fecha_plan ASC
 LIMIT 3;

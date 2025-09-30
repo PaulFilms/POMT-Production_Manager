@@ -71,9 +71,12 @@ data = DB.select('SELECT * FROM view_bi_hitos_top3')
 df_bi = pd.DataFrame(data, columns=headers)
 
 a, b, c = st.columns(3)
-a.metric(df_bi['nombre'].iat[0], df_bi['bu_id'].iat[0], f'{df_bi['Δ_dias'].iat[0]} Días', border=True, width='stretch')
-b.metric(df_bi['nombre'].iat[1], df_bi['bu_id'].iat[1], f'{df_bi['Δ_dias'].iat[1]} Días', border=True, width='stretch')
-c.metric(df_bi['nombre'].iat[2], df_bi['bu_id'].iat[2], f'{df_bi['Δ_dias'].iat[2]} Días', border=True, width='stretch')
+if len(df_bi) >= 1:
+    a.metric(df_bi['nombre'].iat[0], df_bi['bu_id'].iat[0], f'{df_bi['Δ_dias'].iat[0]} Días', border=True, width='stretch')
+if len(df_bi) >= 2:
+    b.metric(df_bi['nombre'].iat[1], df_bi['bu_id'].iat[1], f'{df_bi['Δ_dias'].iat[1]} Días', border=True, width='stretch')
+if len(df_bi) >= 3:
+    c.metric(df_bi['nombre'].iat[2], df_bi['bu_id'].iat[2], f'{df_bi['Δ_dias'].iat[2]} Días', border=True, width='stretch')
 
 ## TOP3 PDCAs
 st.container(border=False, height=20) # Separador
@@ -83,10 +86,9 @@ st.header('TOP3 ACCIONES', divider='red')
 st.container(border=False, height=20) # Separador
 st.header('TOP10 Caminos Criticos', divider='orange')
 
-
 ## CALENDARIO
 st.container(border=False, height=20) # Separador
-st.header('CALENDARIO', divider='orange')
+st.header('Calendario Entregas', divider='orange')
 UI.my_calendar()
 
 
