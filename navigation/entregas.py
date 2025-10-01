@@ -1,7 +1,7 @@
 
 
 import streamlit as st
-from app import session_state_start, get_firm
+from frontend import session_state_start, get_firm, Pedidos
 from functions import *
 
 session_state_start()
@@ -281,9 +281,13 @@ class UI:
 
 st.logo(r'assets\logo_extend.svg', size='large')
 
-col_hitos_options, col_hitos_filtros, col_hitos_vista = st.columns(3)
+# col_hitos_options, col_hitos_filtros, col_hitos_vista = st.columns(3)
 
-with col_hitos_options:
-    st.button('NUEVO', width='stretch', icon=':material/add_box:', on_click=Hitos.new_hito, kwargs={'pedido_id': pedido_id})
-    # st.button('EDITAR', width='stretch', icon=':material/edit_square:', disabled=opt_edit) # edit_square
-    edit_holder = st.empty()
+# with col_hitos_options:
+#     st.button('NUEVO', width='stretch', icon=':material/add_box:', on_click=Hitos.new_hito, kwargs={'pedido_id': pedido_id})
+#     # st.button('EDITAR', width='stretch', icon=':material/edit_square:', disabled=opt_edit) # edit_square
+#     edit_holder = st.empty()
+
+pedido = Pedidos.tbl()
+
+print(pedido)

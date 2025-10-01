@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 
 CREATE TABLE IF NOT EXISTS "acciones" (
 	"id"	INTEGER NOT NULL UNIQUE,
+	"pedido_id"	TEXT NOT NULL,
 	"hito_id"	INTEGER NOT NULL,
 	"causa"	TEXT NOT NULL,
 	"alarma"	INTEGER,
@@ -72,7 +73,7 @@ CREATE TABLE IF NOT EXISTS "acciones" (
 	"DB"	BLOB DEFAULT '{"modificaciones": []}',
 	"firm"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT),
-	FOREIGN KEY("hito_id") REFERENCES "hitos"("id")
+	-- FOREIGN KEY("hito_id") REFERENCES "hitos"("id")
 );
 
 CREATE TABLE IF NOT EXISTS "empresas" (
@@ -137,6 +138,8 @@ DROP VIEW IF EXISTS "main"."view_hitos";
 DROP VIEW IF EXISTS "main"."view_business_unit";
 DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 
+
+
 -- DROP VIEW IF EXISTS "main"."view_pedidos";
 CREATE VIEW IF NOT EXISTS view_pedidos AS
 SELECT 
@@ -172,7 +175,7 @@ LEFT JOIN (
 -- Subconsulta de acciones
 LEFT JOIN (
     SELECT 
-        hito_id,
+        pedido_id,
         COUNT(*) AS total_acciones,
         MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
         MIN(CASE WHEN causa = 'DT' THEN alarma END) AS DT,
@@ -181,11 +184,13 @@ LEFT JOIN (
         MIN(CASE WHEN causa = 'EM' THEN alarma END) AS EM,
         MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
     FROM acciones
-    WHERE estado <> 4 OR estado IS NULL
+--     WHERE estado <> 4 OR estado IS NULL
     GROUP BY hito_id
-) a ON h.id = a.hito_id
+) a ON p.id = a.pedido_id
 
 ORDER BY p.id;
+
+
 
 -- DROP VIEW IF EXISTS "main"."view_hitos";
 CREATE VIEW IF NOT EXISTS view_hitos AS
@@ -221,6 +226,8 @@ LEFT JOIN (
 
 ORDER BY hitos.id;
 
+
+
 -- DROP VIEW IF EXISTS "main"."view_business_unit";
 CREATE VIEW IF NOT EXISTS view_business_unit AS
 SELECT 
@@ -237,6 +244,8 @@ GROUP BY
     bu.id
 ORDER BY 
     "∑_GPIs" DESC;
+
+
 
 -- DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 CREATE VIEW IF NOT EXISTS view_bi_hitos_top3 AS

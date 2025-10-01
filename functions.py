@@ -1,5 +1,5 @@
 import os, json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, get_type_hints
 # from typing import TypedDict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -8,7 +8,7 @@ import pandas as pd
 from pyreports.xlsx import DF_REPORT
 from mysqlite import *
 
-import streamlit as st
+# import streamlit as st
 import plotly.graph_objects as go
 # import plotly.express as px # https://python-charts.com/es/evolucion/diagrama-gantt-plotly/
 # import numpy as np
@@ -24,61 +24,30 @@ if SQLITE:
     path_file = 'POMT_production_manager.db'
     path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
     path_db = os.path.join(path_net, path_file)
-    # DB = SQL(path_db=path_db)
-    DB = SQL(path_db=path_file)
+    DB = SQL(path_db=path_db)
+    # DB = SQL(path_db=path_file)
 
-SUPABASE: bool = 0
-if SUPABASE:
-    from supabase import create_client, Client
-    from supabase.client import ClientOptions
-    url: str = st.secrets.connections.supabase.SUPABASE_URL
-    key: str = st.secrets.connections.supabase.SUPABASE_KEY
-    supabase: Client = create_client(
-        url,
-        key,
-        options=ClientOptions(
-            postgrest_client_timeout=10,
-            storage_client_timeout=10,
-            schema="public",
-        )
-    )
+# SUPABASE: bool = 0
+# if SUPABASE:
+#     from supabase import create_client, Client
+#     from supabase.client import ClientOptions
+#     url: str = st.secrets.connections.supabase.SUPABASE_URL
+#     key: str = st.secrets.connections.supabase.SUPABASE_KEY
+#     supabase: Client = create_client(
+#         url,
+#         key,
+#         options=ClientOptions(
+#             postgrest_client_timeout=10,
+#             storage_client_timeout=10,
+#             schema="public",
+#         )
+#     )
 
 
 ## DB
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-@dataclass
-class Usuario:
-    '''
-    `Args:`
-    - id : str
-    - nombre : str
-    - apellidos : str
-    - mail : str
-    - info : str
-    - password : str
-    - DB : dict
-    - firm : str
-    
-    `Functions:`
-    - get_form_sql -> Usuario
-    - get_form -> str
-    '''
-    id: str
-    nombre: str
-    apellidos: str
-    mail: str
-    info: str
-    password: str
-    DB: dict
-    firm: str
 
-    @classmethod
-    def get_form_sql(cls, sql_data: tuple) -> 'Usuario':
-        sql_data = list(sql_data)
-        if sql_data[6] and isinstance(sql_data[6], str):
-            sql_data[6] = json.loads(sql_data[6])
-        return cls(*sql_data)
 
     # # @staticmethod
     # def get_firm(self) -> str:
@@ -186,6 +155,137 @@ class Modificacion:
 ## DATA
 ## ____________________________________________________________________________________________________________________________________________________________________
 
+class ORM:
+    '''
+    Clases de datos:
+    - Usuario
+    - Pedido
+    - Hito
+    - Accion
+    '''
+
+    @dataclass
+    class Usuario:
+        '''
+        `Args:`
+        - id : str
+        - nombre : str
+        - apellidos : str
+        - mail : str
+        - info : str
+        - password : str
+        - DB : dict
+        - firm : str
+        
+        `Functions:`
+        - get_form_sql -> Usuario
+        - get_form -> str
+        '''
+        id: str
+        nombre: str
+        apellidos: str
+        mail: str
+        info: str
+        password: str
+        DB: dict
+        firm: str
+
+        @classmethod
+        def get_form_sql(cls, sql_data: tuple) -> 'ORM.Usuario':
+            sql_data = list(sql_data)
+            if sql_data[6] and isinstance(sql_data[6], str):
+                sql_data[6] = json.loads(sql_data[6])
+            return cls(*sql_data)
+
+    @dataclass
+    class BaseData:
+        @classmethod
+        def from_dict(cls, values: Dict[str, Any]) -> 'ORM.BaseData':
+            cls_fields = {f.name for f in fields(cls)}
+            type_hints = get_type_hints(cls)
+
+            data = {}
+            for k, v in values.items():
+                if k in cls_fields:
+                    expected_type = type_hints.get(k)
+
+                    if expected_type is datetime and isinstance(v, str):
+                        data[k] = datetime.strptime(v, '%Y-%m-%d')
+                    elif isinstance(v, pd.Timestamp):
+                        data[k] = v.to_pydatetime()
+                    else:
+                        data[k] = v
+            return cls(**data)
+
+        def to_dict(self) -> Dict[str, Any]:
+            return asdict(self)
+
+        def to_sql(self) -> Dict[str, Any]:
+            '''
+            Devuelve un diccionario de valores para INSERT / UPDATE 
+            '''
+            data = asdict(self)
+            for k, v in data.items():
+                if isinstance(v, datetime):
+                    data[k] = datetime.strftime(data[k], r'%Y-%m-%d')
+
+            DB = data.get('DB', None)
+            if not DB:
+                DB = dict()
+            for k, v in DB.items():
+                if isinstance(v, datetime):
+                    self.DB[k] = v.strftime(r'%Y-%m-%d %H:%M')
+            DB = json.dumps(DB)
+            data['DB'] = DB
+
+            return data
+
+    @dataclass
+    class Pedido(BaseData):
+        id: str
+        info: str
+        bu_id: str
+        contraseña: str
+        planificador: str
+        fecha_ini: datetime
+        fecha_fin: datetime
+        alarma: int = None
+        DB: dict = None
+        firm: str = None
+
+    @dataclass
+    class Hito(BaseData):
+        id: int
+        pedido_id: str
+        hito_id: int
+        grupo: str
+        nombre: str
+        fecha_req: datetime
+        fecha_plan: datetime
+        responsable: str
+        alarma: int = None
+        estado: int = None
+        info: str = None
+        DB: dict = None
+        firm: str = None
+
+    @dataclass
+    class Accion(BaseData):
+        id: str
+        hito_id: int
+        causa: str
+        alarma: int
+        info: str
+        accion: str
+        planificador: str
+        responsable: str
+        fecha_accion: datetime
+        fecha_req: datetime
+        estado: int = 0
+        DB: dict = None
+        firm: str = None
+
+
 def safe_json_loads(x):
     if pd.isna(x) or x == '' or x is None:
         return {}  # O {} o [] o lo que quieras devolver cuando esté vacío
@@ -262,9 +362,9 @@ def get_usuarios(count: int = 0) -> 'pd.DataFrame':
         data = DB.select('SELECT * FROM usuarios')
         df = pd.DataFrame(data, columns=headers)
         return df
-    if SUPABASE:
-        data = supabase.table(table).select('*').execute().data
-        return pd.DataFrame(data)
+    # if SUPABASE:
+    #     data = supabase.table(table).select('*').execute().data
+    #     return pd.DataFrame(data)
 
 # @st.cache_data
 def get_business_units(count: int = 0) -> 'pd.DataFrame':
@@ -294,61 +394,15 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
         df[c.name] = df[c.name].map(Alarmas.id_by_color())
     return df
 
-def get_usuarios_by_dept(departamento_id: str):
+def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
     if not departamento_id:
-        return get_usuarios(st.session_state.usuarios)['id'].to_list()
-    df = get_departamentos(st.session_state.departamentos)
+        return get_usuarios(count_usuarios)['id'].to_list()
+    df = get_departamentos(count_departamentos)
     df_DB = df.loc[df['id']==departamento_id, 'DB'].squeeze()
     if not df_DB:
         return None
     DB: dict = json.loads(df_DB)
     return DB.get('usuario_id', None)
-
-@dataclass
-class Hito:
-    id: int
-    pedido_id: str
-    grupo: str
-    nombre: str
-    fecha_req: datetime
-    fecha_plan: datetime
-    responsable: str
-    alarma: int = None
-    estado: int = None
-    info: str = None
-    DB: dict = None
-    firm: str = None
-
-    def to_dict(self):
-        return asdict(self)
-    
-    def to_sql(self) -> Dict[str, Any]:
-        '''
-        Devuelve un diccionario de valores para INSERT / UPDATE 
-        '''
-        if isinstance(self.fecha_req, datetime):
-            self.fecha_req = self.fecha_req.strftime(r'%Y-%m-%d')
-        if isinstance(self.fecha_plan, datetime):
-            self.fecha_plan = self.fecha_plan.strftime(r'%Y-%m-%d')
-        if not self.DB:
-            self.DB = {}
-        for k, v in self.DB.items():
-            if isinstance(v, datetime):
-                self.DB[k] = v.strftime(r'%Y-%m-%d %H:%M')
-        self.DB = json.dumps(self.DB)
-        if not self.firm:
-            self.firm = f'{st.session_state.login.id} / {datetime.now().strftime(r'%Y-%m-%d %H:%M')}'
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, values: Dict[str, Any]) -> 'Hitos.Hito':
-        cls_fields = {f.name for f in fields(cls)}
-        data = {k: v for k, v in values.items() if k in cls_fields}
-        if isinstance(data['fecha_req'], str):
-            data['fecha_req'] = datetime.strptime(data['fecha_req'], r'%Y-%m-%d')
-        if isinstance(data['fecha_plan'], str):
-            data['fecha_plan'] = datetime.strptime(data['fecha_plan'], r'%Y-%m-%d')
-        return cls(**data)
 
 def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     '''
@@ -370,12 +424,13 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
-def get_acciones(hito_id: int) -> 'pd.DataFrame':
+# @st.cache_data
+def get_acciones(count: int = 0) -> 'pd.DataFrame':
     '''
     st.session_state.acciones
     '''
     headers = DB.execute("SELECT * FROM acciones LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM acciones WHERE hito_id="{hito_id}";')
+    data = DB.select(f'SELECT * FROM acciones;')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['fecha_accion'] = df['fecha_accion'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
@@ -429,6 +484,8 @@ class UI:
             return asdict(self)
 
     def my_timeline(df: pd.DataFrame):
+        import streamlit as st # BUG
+
         # Convertir fechas
         df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
         df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
@@ -519,6 +576,7 @@ class UI:
         return plt
 
     def my_hitoline(df: pd.DataFrame, hito_col: str = "hito", fecha_col: str = "fecha"):
+        import streamlit as st # BUG
         import matplotlib.pyplot as plt
         # Asegurarse que la columna de fecha sea datetime
         df[fecha_col] = pd.to_datetime(df[fecha_col])
@@ -580,6 +638,7 @@ class UI:
         '''
         Ejemplo de Gantt (Borrar)
         '''
+        import streamlit as st # BUG
         # # CSS para ocultar el encabezado de Streamlit (y filas de menú)
         # hide_style = """
         # <style>
@@ -659,6 +718,7 @@ class UI:
             st.plotly_chart(fig, width='content')
 
     def my_calendar():
+        import streamlit as st # BUG
         import warnings
         warnings.filterwarnings("ignore", message="findfont: Font family 'Helvetica' not found.")
         from matplotlib import rcParams
