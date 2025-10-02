@@ -1,4 +1,5 @@
 from time import sleep
+from datetime import date, datetime
 
 import streamlit as st
 from functions import *
@@ -118,19 +119,19 @@ class Pedidos:
                     send_mail()
                 st.rerun()
 
-    @st.dialog('➕ INFO/EDIT GPI', width='medium')
+    @st.dialog('✏️ INFO/EDIT GPI', width='medium')
     def edit(pedido: ORM.Pedido) -> None:
         st.header(pedido.id, divider='blue')
         info = st.text_area('INFO / DESCRIPCIÓN', value=pedido.info, height=1)
-        b_units = get_business_units(st.session_state.bu)['id'].to_list()
-        bu_id = st.selectbox('BUSINESS UNIT', options=b_units, index=b_units.index(pedido.bu_id), accept_new_options=False)
+        # b_units = get_business_units(st.session_state.bu)['id'].to_list()
+        # bu_id = st.selectbox('BUSINESS UNIT', options=b_units, index=b_units.index(pedido.bu_id), accept_new_options=False)
         fecha_ini = st.date_input('FECHA INICIO', value=pedido.fecha_ini, format='YYYY-MM-DD')
         fecha_fin = st.date_input('FECHA FIN', value=pedido.fecha_fin, format='YYYY-MM-DD')
         usuarios = get_usuarios(st.session_state.usuarios)['id'].to_list()
         planificador = st.selectbox('PLANIFICADOR', options=usuarios, index=usuarios.index(pedido.planificador), accept_new_options=False)
         alarma_indx = pedido.alarma - 1 if isinstance(pedido.alarma, int) else None
         alarma_color = st.radio('ALARMA', options=["🟥","🟨","🟩"], index=alarma_indx, horizontal=True)
-        alarma = Alarmas.get_int(alarma_color)
+        alarma_id = Alarmas.get_int(alarma_color)
         btn_mod = st.button('MODIFICAR', width='stretch')
         info_mod = st.text_area('INFO MODIFICACIÓN', height=1)
         mail = st.checkbox('ENVIAR MAIL')
@@ -147,36 +148,34 @@ class Pedidos:
                     data=dict(),
                     user=st.session_state.login.id
                 )
-                # info_mod = f'## MODIFICACIÓN: {fecha_mod}\n{info_mod}\n\n'
+                args = {
+                    'info': info,
+                    'fecha_ini': fecha_ini,
+                    'fecha_fin': fecha_fin, 
+                    'planificador': planificador, 
+                    'alarma': alarma_id, 
+                }
                 values = dict()
-                if info != pedido.info:
-                    values['info'] = info
-                if fecha_ini != pedido.fecha_ini.date():
-                    values['fecha_ini'] = fecha_ini.strftime(r'%Y-%m-%d')
-                if fecha_fin != pedido.fecha_fin.date():
-                    values['fecha_fin'] = fecha_fin.strftime(r'%Y-%m-%d')
-                if bu_id != pedido.bu_id:
-                    values['bu_id'] = bu_id
-                if planificador != pedido.planificador:
-                    values['planificador'] = planificador
-                if alarma != pedido.alarma:
-                    values['alarma'] = alarma
-                pedido_dict = pedido.to_dict()
-                for k, v in values.items():
-                    old = pedido_dict[k]
+                for k, v in args.items():
+                    old = getattr(pedido, k)
                     new = v
-                    if isinstance(old, datetime): old = old.strftime(r'%Y-%m-%d')
-                    if isinstance(new, datetime): new = new.strftime(r'%Y-%m-%d')
-                    mod.data[k] = {'old': old, 'new': new}
+                    if isinstance(old, datetime) or isinstance(old, date): old = old.strftime(r'%Y-%m-%d')
+                    if isinstance(new, datetime) or isinstance(new, date): new = new.strftime(r'%Y-%m-%d')
+                    if new != old:
+                        mod.data[k] = {
+                            'old': old,
+                            'new': new,
+                        }
+                        values[k] = new
                 values['firm'] = get_firm()
                 values['DB'] = pedido.DB
                 if not values['DB'].get('modificaciones'):
                     values['DB']['modificaciones'] = []
                 values['DB']['modificaciones'].append(mod.to_dict())
                 values['DB'] = json.dumps(values['DB'])
+                
                 if mail:
                     send_mail()
-                
                 DB.update('pedidos', values=values, where={'id': pedido.id})
                 st.session_state.pedidos += 1
                 st.rerun()
@@ -245,7 +244,7 @@ class Pedidos:
         df = df[df['alarma']==Alarmas.get_int(filter_alert)] if filter_alert in Alarmas.colors() else df
         
         ## OPCIÓN REPORT
-        btn_report = holder_report.button('REPORT .xlsx', icon=r':material/docs:', width='stretch') # , on_click=report_pedidos
+        btn_report = holder_report.button('REPORT .xlsx', icon=r':material/docs:', width='stretch', key='btn_pedidos_report') # , on_click=report_pedidos
         if btn_report:
             columns_df = df.columns.to_list()
             for col in ['DB', ]: columns_df.remove(col)
@@ -276,17 +275,29 @@ class Pedidos:
             col_height, _, _ = st.columns(3)
             height_holder = col_height.empty()
 
-            columns = ['#', 'info', 'id', 'bu_id', 'planificador', 'fecha_ini', 'fecha_fin', '∑_hitos', '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA']
+            columns = ['id', 'info', '#', 'bu_id', 'planificador', 'fecha_ini', 'fecha_fin', '∑_hitos', '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA',
+                'pde_retraso_dias',
+                'pde_material_critico',
+                'pde_description',
+                'pde_actualizado',
+                'pde_usuario',
+            ]
             columns_config = {
-                '#': st.column_config.Column('#', width=50, pinned=True),
+                'id': st.column_config.Column('GPI', width=None, pinned=True),
                 'info': st.column_config.Column('DESCRIPCIÓN GPI', width=None, pinned=True),
-                'id': st.column_config.Column('GPI', width='small'),
+                '#': st.column_config.Column('#', width=50, pinned=False),
                 'bu_id': st.column_config.Column('BUS. UNIT', width='small'),
                 'planificador': st.column_config.Column('IP', width='small'),
                 'fecha_ini': st.column_config.DatetimeColumn('fecha_ini', format="YYYY-MM-DD", width='small'),
                 'fecha_fin': st.column_config.DatetimeColumn('fecha_fin', format="YYYY-MM-DD", width='small'),
                 '∑_hitos': st.column_config.NumberColumn('∑_hitos', width=50),
                 '∑_acciones': st.column_config.NumberColumn('∑_acciones', width=50),
+                # 'pde_retraso_dias',
+                # 'pde_material_critico',
+                # 'pde_description',
+                # 'pde_actualizado',
+                'pde_actualizado': st.column_config.DatetimeColumn('PDE actualización', format="YYYY-MM-DD", width='small'),
+
             }
             for c in Causas:
                 columns_config[c.name] = st.column_config.TextColumn(c.name, width=50)
@@ -324,12 +335,184 @@ class Pedidos:
 
 class Hitos:
     @st.dialog('➕ NUEVO HITO', width='medium')
-    def new() -> None:
-        pass
+    def new(pedido_id: str) -> None:
+        col_alert, col_bu, col_user = st.columns(3)
+        
+        alarma_color = col_alert.radio('ALARMA', options=["🟥","🟨","🟩"], index=None, horizontal=True)
+        alarma_id = Alarmas.get_int(alarma_color)        
+        
+        departamento    = col_bu.selectbox('DEPARTAMENTO', options=get_departamentos(st.session_state.departamentos)['id'].tolist(), index=None, accept_new_options=False)
+        responsable      = col_user.selectbox('RESPONSABLE', options=get_usuarios_by_dept(departamento, st.session_state.usuarios, st.session_state.departamentos), index=None, accept_new_options=False)
 
-    @st.dialog('➕ INFO/EDIT HITO', width='medium')
+        nombre = st.text_area('DESCRIPCIÓN DEL HITO', value=None)
+        grupo = st.text_input('GRUPO')
+        fecha_req = st.date_input('FECHA REQUERIDA', value=None, min_value=datetime(2024,1,1), format='YYYY-MM-DD')
+        fecha_plan = st.date_input('FECHA PLANIFICADA', value=None, min_value=datetime(2024,1,1), format='YYYY-MM-DD')
+        cantidad = st.number_input('CANTIDAD', min_value=1, max_value=None, value=1, label_visibility='visible')
+
+        if st.button('AÑADIR HITO', icon='🔄️', width='stretch'):
+            if not grupo or not nombre or not fecha_req or not fecha_plan or not responsable:
+                st.warning("RELLENA TODOS LOS DATOS", icon='⚠️')
+            else:
+                mod = Modificacion(
+                    fecha=datetime.now(),
+                    info='Creación de hito',
+                    data=None,
+                    user=st.session_state.login.id
+                )
+                hito = ORM.Hito(
+                    id=None,
+                    pedido_id=pedido_id,
+                    grupo=grupo,
+                    nombre=nombre,
+                    fecha_req=fecha_req,
+                    fecha_plan=fecha_plan,
+                    responsable=responsable,
+                    alarma=alarma_id,
+                    estado=1,
+                    info=None,
+                    DB={
+                        'modificaciones': [mod.to_dict()],
+                        'cantidad': cantidad
+                    },
+                    firm=get_firm()
+                )
+                DB.insert('hitos', values=hito.to_sql())
+                st.session_state.hitos += 1
+                st.rerun()
+
+    @st.dialog('✏️ INFO/EDIT HITO', width='medium')
     def edit(hito: ORM.Hito) -> None:
-        pass
+        st.write(hito.pedido_id, '/', hito.grupo)
+        st.write(hito.nombre)
+
+        nombre = st.text_area('DESCRIPCIÓN DEL HITO', value=hito.nombre)
+        alarma_indx = hito.alarma - 1 if isinstance(hito.alarma, int) else None
+        alarma_color = st.radio('ALARMA', options=["🟥","🟨","🟩"], index=alarma_indx, horizontal=True)
+        alarma_id = Alarmas.get_int(alarma_color)
+        # estado_indx = hito.estado - 1 if isinstance(hito.estado, int) else None
+        estado_indx = hito.estado - 1 if isinstance(hito.estado, int) else None
+        estado_icon = st.radio('ESTADO', options=Estados.get_estados_icon(), index=estado_indx, horizontal=True)
+        estado_id = Estados.get_id(estado_icon)
+        fecha_req = st.date_input('FECHA REQUERIDA', value=hito.fecha_req, format='YYYY-MM-DD')
+        fecha_plan = st.date_input('FECHA PLANIFICADA', value=hito.fecha_plan, format='YYYY-MM-DD')
+        cantidad = st.number_input('CANTIDAD', min_value=1, max_value=None, value=1, label_visibility='visible')
+        # info = st.text_area('INFO / DESCRIPCIÓN', value=hito.info, height=1)
+        btn_mod = st.button('MODIFICAR', width='stretch')
+        info_mod = st.text_area('INFO MODIFICACIÓN', height=1)
+        mail = st.checkbox('ENVIAR MAIL')
+
+        if btn_mod:
+            if not info_mod:
+                st.warning("INDICA EL MOTIVO DE LA MODIFICACIÓN", icon='⚠️')
+            else:
+
+                mod = Modificacion(
+                    fecha=datetime.now(),
+                    info=info_mod,
+                    data=dict(),
+                    user=st.session_state.login.id
+                )
+                args = {
+                    'nombre': nombre,
+                    'alarma': alarma_id, 
+                    'fecha_ini': fecha_ini,
+                    'fecha_fin': fecha_fin, 
+                    'planificador': planificador, 
+                    
+                }
+                values = dict()
+                for k, v in args.items():
+                    old = getattr(hito, k)
+                    new = v
+                    if isinstance(old, datetime) or isinstance(old, date): old = old.strftime(r'%Y-%m-%d')
+                    if isinstance(new, datetime) or isinstance(new, date): new = new.strftime(r'%Y-%m-%d')
+                    if new != old:
+                        mod.data[k] = {
+                            'old': old,
+                            'new': new,
+                        }
+                        values[k] = new
+                values['firm'] = get_firm()
+                values['DB'] = hito.DB
+                if not values['DB'].get('modificaciones'):
+                    values['DB']['modificaciones'] = []
+                values['DB']['modificaciones'].append(mod.to_dict())
+                values['DB'] = json.dumps(values['DB'])
+
+
+
+
+
+
+
+                fecha_req = fecha_req.strftime(r'%Y-%m-%d')
+                fecha_plan = fecha_plan.strftime(r'%Y-%m-%d')
+                mod = Modificacion(
+                    fecha=datetime.now(),
+                    info=info_mod,
+                    data=dict(),
+                    user=st.session_state.login.id
+                )
+                args = {
+                    'fecha_req': fecha_req, 
+                    'fecha_plan': fecha_plan, 
+                    'alarma': alarma, 
+                    'estado': estado, 
+                    # 'info': info,
+                }
+                values = dict()
+                for k, v in args.items():
+                    old = getattr(hito, k)
+                    new = v
+                    if isinstance(old, datetime): old = old.strftime(r'%Y-%m-%d')
+                    if isinstance(new, datetime): new = new.strftime(r'%Y-%m-%d')
+                    if new != old:
+                        mod.data[k] = {
+                            'old': old,
+                            'new': new,
+                        }
+                        values[k] = new
+                
+                values['firm'] = get_firm()
+                values['DB'] = hito.DB
+                if not values['DB'].get('modificaciones'):
+                    values['DB']['modificaciones'] = []
+                values['DB']['modificaciones'].append(mod.to_dict())
+                values['DB'] = json.dumps(values['DB'])
+
+                if mail:
+                    send_mail()
+                
+                DB.update('hitos', values=values, where={'id': hito.id})
+                st.session_state.hitos += 1
+                st.rerun()
+
+
+    @st.dialog('📄 HISTORICO', width='medium')
+    def log(hito: ORM.Hito) -> None:
+        modificaciones = hito.DB.get('modificaciones', None)
+        if modificaciones:
+            for mod in modificaciones:
+                # st.write(mod)
+                fecha = mod.get('fecha', None)
+                info = mod.get('info', None)
+                user = mod.get('user', None)
+                title = f'{fecha} / {user}'
+
+                st.write(title)
+                with st.container(border=True):
+                    st.caption(info)
+                    data = mod.get('data', None)
+                    if data:
+                        rows = []
+                        for key, values in data.items():
+                            rows.append({
+                                "PARAMETRO": key,
+                                "ANTERIOR": str(values.get("old")),
+                                "NUEVO": str(values.get("new"))
+                            })
+                        st.dataframe(pd.DataFrame(rows), hide_index=True)
 
     def tbl(pedido_id: str = None) -> ORM.Hito:
 
@@ -338,7 +521,7 @@ class Hitos:
         vistas = ['TABLA', 'GANTT']
 
         with col_opciones.expander('OPCIONES', icon='🔧', width='stretch'):
-            st.button('NUEVO', width='stretch', icon=':material/add_box:', key='btn_hitos_new', on_click=Hitos.new)
+            st.button('NUEVO', width='stretch', icon=':material/add_box:', key='btn_hitos_new', on_click=Hitos.new, kwargs={'pedido_id': pedido_id})
             holder_report = st.empty() ## BOTON REPORT
             holder_select = st.empty() ## LABEL SELECCION
             holder_edit = st.empty() ## BOTON EDITAR
@@ -369,51 +552,49 @@ class Hitos:
         df = df[df['alarma']==Alarmas.get_int(filter_alert)] if filter_alert in Alarmas.colors() else df
         
         ## OPCIÓN REPORT
-        # btn_report = holder_report.button('REPORT .xlsx', icon=r':material/docs:', width='stretch') # , on_click=report_pedidos
-        # if btn_report:
-        #     columns_df = df.columns.to_list()
-        #     for col in ['DB', ]: columns_df.remove(col)
-        #     file_name = r'report_hitos.xlsx'
-        #     path_file = os.path.join('temp', file_name)
-        #     if os.path.exists(path_file):
-        #         os.remove(path_file)
-        #     DF_REPORT(path=path_file, dataFrame=df[columns_df])
-        #     with open(path_file, "rb") as f:
-        #         archivo_bytes = f.read()
-        #     p_bar = holder_report.progress(0, 'Creando Report...')
-        #     for percent_complete in range(100):
-        #         sleep(0.01)
-        #         p_bar.progress(percent_complete + 1, text='Creando Report...')
-        #     holder_report.download_button(
-        #         'Download', 
-        #         data=archivo_bytes, 
-        #         file_name=file_name, 
-        #         icon=r':material/download:', 
-        #         width='stretch', 
-        #         on_click='rerun'
-        #     )
-        #     if os.path.exists(path_file):
-        #         os.remove(path_file)
+        btn_report = holder_report.button('REPORT .xlsx', icon=r':material/docs:', width='stretch', key='btn_hitos_report') # , on_click=report_pedidos
+        if btn_report:
+            columns_df = df.columns.to_list()
+            for col in ['DB', 'firm']: columns_df.remove(col)
+            file_name = r'report_hitos.xlsx'
+            path_file = os.path.join('temp', file_name)
+            if os.path.exists(path_file):
+                os.remove(path_file)
+            DF_REPORT(path=path_file, dataFrame=df[columns_df])
+            with open(path_file, "rb") as f:
+                archivo_bytes = f.read()
+            p_bar = holder_report.progress(0, 'Creando Report...')
+            for percent_complete in range(100):
+                sleep(0.01)
+                p_bar.progress(percent_complete + 1, text='Creando Report...')
+            holder_report.download_button(
+                'Download', 
+                data=archivo_bytes, 
+                file_name=file_name, 
+                icon=r':material/download:', 
+                width='stretch', 
+                on_click='rerun'
+            )
+            if os.path.exists(path_file):
+                os.remove(path_file)
         
         if vista == 'TABLA':
             tbl_holder = st.empty()
             col_height, _, _ = st.columns(3)
             height_holder = col_height.empty()
 
-#             columns_hitos = ['nombre', 'grupo', 'responsable', '#', 'fecha_req', 'fecha_plan', 'Δ', 'estado']
-
-            columns = ['#', 'nombre', 'responsable', 'fecha_req', 'fecha_plan', 'Δ', 'estado', '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA', 'id', ]
+            columns = ['nombre', '#', 'id', 'responsable', 'fecha_req', 'fecha_plan', 'Δ', 'estado', 
+                '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA',
+            ]
+            
             columns_config = {
+                'nombre': st.column_config.Column('DESCRIPCIÓN HITO', width=300, pinned=True),
+                '#': st.column_config.Column('#', width=50, pinned=False),
                 'id': st.column_config.Column('id', width=0),
-                '#': st.column_config.Column('#', width=50, pinned=True),
-                'nombre': st.column_config.Column('DESCRIPCIÓN HITO', width='medium', pinned=True),
-                
-                # 'bu_id': st.column_config.Column('BUS. UNIT', width='small'),
-                # 'planificador': st.column_config.Column('IP', width='small'),
                 'fecha_req': st.column_config.DatetimeColumn('FECHA REQUERIDA', format="YYYY-MM-DD", width='small'),
                 'fecha_plan': st.column_config.DatetimeColumn('FECHA PLANIFICADA', format="YYYY-MM-DD", width='small'),
                 # '∑_hitos': st.column_config.NumberColumn('∑_hitos', width=50),
-                # '∑_acciones': st.column_config.NumberColumn('∑_acciones', width=50),
+                '∑_acciones': st.column_config.NumberColumn('∑_acciones', width=50),
             }
             for c in Causas:
                 columns_config[c.name] = st.column_config.TextColumn(c.name, width=50)
@@ -436,15 +617,127 @@ class Hitos:
             tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None
             df_loc = df.index[tbl_iloc] if tbl_iloc != None else None
 
-        if vista == 'SELECTBOX':
-            pedido_id: str = st.selectbox('SELECT GPI', options=df['id'].to_list(), index=None, label_visibility='collapsed')
-            df_loc = df.loc[df['id']==pedido_id].index[0] if pedido_id else None
+        if vista == 'GANNT':
+            pass
 
-        pedido: ORM.Pedido = None
+        hito: ORM.Hito = None
         if df_loc != None:
-            pedido = ORM.Pedido.from_dict(df.loc[df_loc].to_dict())
+            hito = ORM.Hito.from_dict(df.loc[df_loc].to_dict())
             holder_select.write('SELECCIÓN')
-            holder_edit.button('EDITAR', width='stretch', icon=':material/edit_square:', key='gpi_options_edit', on_click=Pedidos.edit, kwargs={'pedido': pedido})
-            holder_historico.button('HISTORICO', width='stretch', icon=':material/history_toggle_off:', key='gpi_options_log', on_click=Pedidos.log, kwargs={'pedido': pedido})
+            holder_edit.button('EDITAR', width='stretch', icon=':material/edit_square:', key='btn_hitos_edit', on_click=Hitos.edit, kwargs={'hito': hito})
+            holder_historico.button('HISTORICO', width='stretch', icon=':material/history_toggle_off:', key='btn_hitos_log', on_click=Hitos.log, kwargs={'hito': hito})
 
-        return pedido
+        return hito
+
+class Acciones:
+    @st.dialog('➕ NUEVO HITO', width='medium')
+    def new() -> None:
+        pass
+
+    @st.dialog('✏️ INFO/EDIT HITO', width='medium')
+    def edit(hito: ORM.Hito) -> None:
+        pass
+
+    @st.dialog('📄 HISTORICO', width='medium')
+    def log(accion: ORM.Accion) -> None:
+        modificaciones = accion.DB.get('modificaciones', None)
+        if modificaciones:
+            for mod in modificaciones:
+                # st.write(mod)
+                fecha = mod.get('fecha', None)
+                info = mod.get('info', None)
+                user = mod.get('user', None)
+                title = f'{fecha} / {user}'
+
+                st.write(title)
+                with st.container(border=True):
+                    st.caption(info)
+                    data = mod.get('data', None)
+                    if data:
+                        rows = []
+                        for key, values in data.items():
+                            rows.append({
+                                "PARAMETRO": key,
+                                "ANTERIOR": str(values.get("old")),
+                                "NUEVO": str(values.get("new"))
+                            })
+                        st.dataframe(pd.DataFrame(rows), hide_index=True)
+
+    def tbl(pedido_id: str = None, hito_id: int = None):
+
+        col_options, col_filtros, col_vista = st.columns(3)
+
+        with col_options.expander('OPCIONES', icon='🔧', width='stretch'):
+            st.button('NUEVO', width='stretch', icon=':material/add_box:', on_click=Acciones.new, kwargs={'hito_id': hito_id}, key='accion_options_new')
+            holder_report = st.empty() ## BOTON REPORT
+            holder_select = st.empty() ## LABEL SELECCION
+            holder_edit = st.empty() ## BOTON EDITAR
+            holder_historico = st.empty() ## BOTON HISTORICO
+            st.write('TABLA')
+            with st.container(border=True):
+                row_height = st.slider(label='ALTO FILA', label_visibility='visible', min_value=40, max_value=300, value=100)
+
+        with col_filtros.expander('FILTROS', icon='🔍', width='stretch'):
+            filter_str = st.text_input('FILTER', label_visibility='collapsed', icon='🔍', key='tx_acciones_filter')
+            # filter_user = st.selectbox('PLANIFICADOR (IP)', options=get_usuarios()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False, key='filter_user_hitos')
+            filter_alert = st.radio(
+                'ALARMA', 
+                options=["All", "🟥","🟨","🟩"], 
+                label_visibility='visible', width='content', 
+                horizontal=True,
+                key='rad_acciones_alert'
+            )
+            filter_estado = st.radio(
+                'ESTADO', 
+                options=["All"] + Estados.get_estados_icon(), 
+                label_visibility='visible', width='content', 
+                horizontal=True,
+                key='rad_acciones_estado'
+            )
+
+        df = get_acciones(pedido_id=pedido_id, hito_id=hito_id)
+        if filter_str != str():
+            mask = df.select_dtypes(include=['object']).apply(
+                lambda col: col.str.contains(filter_str, case=False, na=False)
+            ).any(axis=1)
+            df = df[mask]
+        df = df[df['alarma']==Alarmas.get_int(filter_alert)] if filter_alert in Alarmas.colors() else df
+        df = df[df['estado']==filter_estado] if filter_estado in Estados.get_estados_icon() else df
+
+
+        ## TABLA
+        columns = ['#', 'causa', 'info', 'accion', 'fecha_accion', 'fecha_req', 'planificador', 'responsable', 'estado']
+
+        # st.slider(label='con altura', min_value=100, max_value=500, value=150, label_visibility='collapsed', width='')
+        columns_config = {
+            '#': st.column_config.Column('#', width='small'),
+            'causa': st.column_config.Column('CAUSA', width='small'),
+            'info': st.column_config.Column('info', width='medium'),
+            'accion': st.column_config.Column('acción', width='medium'),
+            'fecha_accion': st.column_config.DatetimeColumn('fecha_accion', format="YYYY-MM-DD", width='small'),
+            'fecha_req': st.column_config.DatetimeColumn('fecha_req', format="YYYY-MM-DD", width='small'),
+            'estado': st.column_config.Column('estado', width='small'),
+        }
+        
+        tbl = st.dataframe(
+            df[columns],
+            hide_index=True,
+            width='stretch',
+            selection_mode='single-row',
+            on_select='rerun',
+            # height=tbl_height,
+            row_height=row_height,
+            column_config=columns_config
+        )
+        tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None
+        df_loc = df.index[tbl_iloc] if tbl_iloc != None else None
+
+
+        hito: ORM.Hito = None
+        if df_loc != None:
+            accion = ORM.Accion.from_dict(df.loc[df_loc].to_dict())
+            holder_select.write('SELECCIÓN')
+            holder_edit.button('EDITAR', width='stretch', icon=':material/edit_square:', key='btn_acciones_edit', on_click=Acciones.edit, kwargs={'hito': hito})
+            holder_historico.button('HISTORICO', width='stretch', icon=':material/history_toggle_off:', key='btn_acciones_log', on_click=Acciones.log, kwargs={'accion': accion})
+
+        return hito

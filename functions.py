@@ -257,7 +257,6 @@ class ORM:
     class Hito(BaseData):
         id: int
         pedido_id: str
-        hito_id: int
         grupo: str
         nombre: str
         fecha_req: datetime
@@ -272,6 +271,7 @@ class ORM:
     @dataclass
     class Accion(BaseData):
         id: str
+        pedido_id: str
         hito_id: int
         causa: str
         alarma: int
@@ -310,6 +310,12 @@ def safe_datetime(value) -> datetime:
             raise ValueError(f"No se pudo parsear la fecha string: {value}")
     else:
         raise TypeError(f"Tipo no soportado para conversión a datetime: {type(value)}")
+
+def safe_int(x) -> int:
+    try:
+        return int(x)
+    except:
+        return 0
 
 def safe_fromtimestamp(x):
     if x is None or pd.isna(x):
@@ -390,8 +396,12 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
     df['contraseña'] = df['contraseña'].apply(safe_contraseña)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].fillna(0)
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].apply(lambda x: 0 if not x else x)
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].apply(safe_int) # BUG
     for c in Causas:
         df[c.name] = df[c.name].map(Alarmas.id_by_color())
+
     return df
 
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
@@ -404,15 +414,20 @@ def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_de
     DB: dict = json.loads(df_DB)
     return DB.get('usuario_id', None)
 
-def get_hitos(pedido_id: str) -> 'pd.DataFrame':
+def get_hitos(pedido_id: str = None) -> 'pd.DataFrame':
     '''
     st.session_state.hitos
     '''
     tabla = 'view_hitos'
     headers = DB.execute(f"SELECT * FROM {tabla} LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM {tabla} WHERE pedido_id="{pedido_id}";')
+    if pedido_id:
+        data = DB.select(f'SELECT * FROM {tabla} WHERE pedido_id="{pedido_id}";')
+    else:
+        data = DB.select(f'SELECT * FROM {tabla};')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    for c in Causas:
+        df[c.name] = df[c.name].map(Alarmas.id_by_color())
     df['fecha_req'] = df['fecha_req'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
     df['fecha_plan'] = df['fecha_plan'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
     if not df.empty:
@@ -425,12 +440,22 @@ def get_hitos(pedido_id: str) -> 'pd.DataFrame':
     return df
 
 # @st.cache_data
-def get_acciones(count: int = 0) -> 'pd.DataFrame':
+def get_acciones(pedido_id: str = None, hito_id: int = None) -> 'pd.DataFrame':
     '''
     st.session_state.acciones
     '''
     headers = DB.execute("SELECT * FROM acciones LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM acciones;')
+    sql = 'SELECT * FROM acciones'
+    filters = []
+    if pedido_id:
+        filters.append(f"pedido_id = '{pedido_id}'")
+    if hito_id:
+        filters.append(f"hito_id = {hito_id}")
+    if filters:
+        final_query = f"{sql} WHERE " + " AND ".join(filters)
+    else:
+        final_query = sql
+    data = DB.select(final_query)
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['fecha_accion'] = df['fecha_accion'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
@@ -457,7 +482,9 @@ def get_templates(count: int = 0) -> List[str]:
 
 class UI:
     def color_cells(value: int):
-        if value > 0:
+        if not isinstance(value, int):
+            return ''
+        elif value > 0:
             return 'background-color: #d4edda'  # verde claro
         elif value <= 0:
             return 'background-color: #f8d7da'  # rojo claro

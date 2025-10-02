@@ -130,6 +130,57 @@ CREATE TABLE IF NOT EXISTS "productos" (
 -- 	"orden"	ASC
 -- );
 
+
+
+/* ETL
+________________________________________________________________________________________________________________________________ */
+
+DROP TABLE IF EXISTS "main"."csv_grafos";
+DROP TABLE IF EXISTS "main"."csv_pde_files";
+
+-- DROP TABLE IF EXISTS "main"."csv_grafos";
+CREATE TABLE IF NOT EXISTS csv_grafos (
+    "PROYECTO"           TEXT, 
+    "DESC PROYECTO"      TEXT, 
+    "OPERACIÓN"          TEXT, 
+    "DESCRIPCIÓN ORDEN"  TEXT, 
+    "CENTRO"             TEXT, 
+    "ELEMENTO PEP"       TEXT, 
+    "FECHA APERTURA"     TEXT, 
+    "RTGP/ PI"           TEXT, 
+    "COMENTARIOS"        TEXT, 
+    "DESCRIPCIÓN"        TEXT, 
+    "IP"                 TEXT, 
+    "Grafos_Operación"   TEXT, 
+    "PI"                 TEXT, 
+    "Grafo"              TEXT, 
+    "Sistema"            TEXT, 
+    PRIMARY KEY("ELEMENTO PEP")
+);
+
+-- DROP TABLE IF EXISTS "main"."csv_pde_files";
+CREATE TABLE IF NOT EXISTS "csv_pde_files" (
+	"Archivo" TEXT,
+	"Ruta" TEXT,
+	"Actualizar Automaticamente?" TEXT,
+	"Actualizado" TEXT,
+	"Actualizado por" TEXT,
+	"Proyecto" TEXT,
+	"Arbol" TEXT,
+	"PEP" TEXT,
+	"Fecha Necesidad" TEXT,
+	"Fecha Entrega" TEXT,
+	"Retraso (días naturales)" TEXT,
+	"Material Crítico" TEXT,
+	"Descripcion" TEXT,
+	"Estado MD4C" TEXT,
+	"Orden" TEXT,
+	"Unnamed: 15" TEXT,
+	"TIMELINE" TEXT
+)
+
+
+
 /* VIEWS
 ________________________________________________________________________________________________________________________________ */
 
@@ -143,7 +194,7 @@ DROP VIEW IF EXISTS "main"."view_bi_hitos_top3";
 -- DROP VIEW IF EXISTS "main"."view_pedidos";
 CREATE VIEW IF NOT EXISTS view_pedidos AS
 SELECT 
-    p.*,
+    gpi.*,
 
     -- Conteo de hitos (estado ≠ 4)
     COALESCE(h.total_hitos, 0) AS "∑_hitos",
@@ -151,15 +202,22 @@ SELECT
     -- Conteo de acciones (estado ≠ 4)
     COALESCE(a.total_acciones, 0) AS "∑_acciones",
 
-    -- Mínimos por causa
-    COALESCE(a.LM, NULL) AS LM,
-    COALESCE(a.DT, NULL) AS DT,
-    COALESCE(a.PL, NULL) AS PL,
-    COALESCE(a.PR, NULL) AS PR,
+    -- Mínimos por causa, En caso de no tener incidencia indicamos verde
+    COALESCE(a.LM, 3) AS LM,
+    COALESCE(a.DT, 3) AS DT,
+    COALESCE(a.PL, 3) AS PL,
+    COALESCE(a.PR, 3) AS PR,
     COALESCE(a.EM, NULL) AS EM,
-    COALESCE(a.CA, NULL) AS CA
+    COALESCE(a.CA, NULL) AS CA,
+	
+	-- PDE
+	"Retraso (días naturales)" as pde_retraso_dias,
+	"Material Crítico" as pde_material_critico,
+	"Descripcion" as pde_description,
+	"Actualizado" as pde_actualizado,
+	"Actualizado por" as pde_usuario
 
-FROM pedidos p
+FROM pedidos gpi
 
 -- Subconsulta de hitos
 LEFT JOIN (
@@ -170,7 +228,7 @@ LEFT JOIN (
     FROM hitos
     WHERE estado <> 4 OR estado IS NULL
     GROUP BY pedido_id
-) h ON p.id = h.pedido_id
+) h ON gpi.id = h.pedido_id
 
 -- Subconsulta de acciones
 LEFT JOIN (
@@ -186,9 +244,13 @@ LEFT JOIN (
     FROM acciones
 --     WHERE estado <> 4 OR estado IS NULL
     GROUP BY hito_id
-) a ON p.id = a.pedido_id
+) a ON gpi.id = a.pedido_id
 
-ORDER BY p.id;
+-- Subconsulta pde
+LEFT JOIN csv_grafos gr ON gpi.id=gr."RTGP/ PI"
+LEFT JOIN csv_pde_files pde ON gr."ELEMENTO PEP"=pde.PEP
+
+ORDER BY gpi.id
 
 
 
@@ -199,12 +261,13 @@ SELECT
 	
     -- Conteo de acciones (estado ≠ 4)
     COALESCE(a.∑_acciones, 0) AS "∑_acciones",
+	json_extract(CAST(DB AS TEXT), '$.cantidad') AS cantidad,
 
     -- Mínimos por causa
-    COALESCE(a.LM, NULL) AS LM,
-    COALESCE(a.DT, NULL) AS DT,
-    COALESCE(a.PL, NULL) AS PL,
-    COALESCE(a.PR, NULL) AS PR,
+    COALESCE(a.LM, 3) AS LM,
+    COALESCE(a.DT, 3) AS DT,
+    COALESCE(a.PL, 3) AS PL,
+    COALESCE(a.PR, 3) AS PR,
     COALESCE(a.EM, NULL) AS EM,
     COALESCE(a.CA, NULL) AS CA
 FROM hitos
@@ -224,7 +287,7 @@ LEFT JOIN (
 	GROUP BY hito_id
 ) a ON hitos.id=a.hito_id
 
-ORDER BY hitos.id;
+ORDER BY hitos.id
 
 
 
@@ -259,3 +322,7 @@ FROM hitos
 WHERE hitos.estado <> 4
 ORDER BY hitos.fecha_plan ASC
 LIMIT 3;
+
+
+
+

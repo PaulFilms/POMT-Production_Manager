@@ -290,4 +290,130 @@ st.logo(r'assets\logo_extend.svg', size='large')
 
 pedido = Pedidos.tbl()
 
-print(pedido)
+from dataclasses import dataclass
+
+@dataclass
+class cal_hito:
+    fecha: datetime
+    alarma: int # 🟥1,🟨2,🟩3
+
+# print(pedido)
+
+
+## TEST
+## ____________________________________________________________________________________________________________________________________________________________________
+
+
+import streamlit as st
+import pandas as pd
+import calendar
+from datetime import datetime
+from dataclasses import dataclass
+from typing import List
+
+# --- HITO DATACLASS
+@dataclass
+class cal_hito:
+    fecha: datetime
+    alarma: int  # 1=🟥, 2=🟨, 3=🟩
+
+# --- FUNCION PRINCIPAL
+def mostrar_calendario_con_hitos(mes_inicio: datetime, mes_fin: datetime, hitos: List[cal_hito]):
+    # Crear diccionario de hitos por día
+    hitos_dict = {h.fecha.date(): h.alarma for h in hitos}
+
+    # Columnas del calendario
+    columnas_dias = ["L", "M", "Mi", "J", "V", "S", "D"]
+
+    # Obtener todos los meses en el rango
+    meses = []
+    current = mes_inicio.replace(day=1)
+    while current <= mes_fin:
+        meses.append(current)
+        # Avanzar al primer día del siguiente mes
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+
+    # Mostrar de 3 en 3
+    for i in range(0, len(meses), 3):
+        meses_batch = meses[i:i + 3]
+        cols = st.columns(len(meses_batch))  # 1 columna por mes (3 max por fila)
+
+        for col, mes_ref in zip(cols, meses_batch):
+            with col:
+                st.markdown(f"### {calendar.month_name[mes_ref.month]} {mes_ref.year}")
+
+                # Generar calendario mensual
+                cal = calendar.Calendar(firstweekday=0)
+                semanas = cal.monthdatescalendar(mes_ref.year, mes_ref.month)
+
+                datos = []
+                week_numbers = []
+                for semana in semanas:
+                    row = []
+                    for dia in semana:
+                        if dia.month == mes_ref.month:
+                            row.append(dia.day)
+                        else:
+                            row.append("")  # Día fuera del mes
+                    datos.append(row)
+                    week_numbers.append(semana[0].isocalendar()[1])
+
+                df = pd.DataFrame(datos, columns=columnas_dias)
+                # df.insert(0, "W", week_numbers)
+
+                # --- STYLER PARA APLICAR COLORES
+                def colorear(val, dia_col, semana_idx):
+                    if val == "":
+                        return ""
+                    try:
+                        dia = int(val)
+                        fecha = semanas[semana_idx][columnas_dias.index(dia_col)]
+                        alarma = hitos_dict.get(fecha, None)
+                        if alarma == 1:
+                            return "background-color: #ffcccc; text-align: left;"  # rojo claro
+                        elif alarma == 2:
+                            return "background-color: #fff2cc; text-align: left;"  # amarillo claro
+                        elif alarma == 3:
+                            return "background-color: #ccffcc; text-align: left;"  # verde claro
+                    except:
+                        pass
+                    return "text-align: left;"
+
+                # Aplicar estilos por celda
+                styled_df = df.style
+                for col_idx, col_name in enumerate(columnas_dias):
+                    styled_df = styled_df.apply(
+                        lambda col: [colorear(val, col_name, idx) for idx, val in enumerate(col)],
+                        axis=0,
+                        subset=[col_name]
+                    )
+
+                styled_df = styled_df.set_properties(**{'text-align': 'left'})
+
+                # Mostrar el DataFrame en Streamlit
+                st.dataframe(
+                    styled_df, 
+                    width='stretch',
+                    hide_index=True,
+                    # height=300
+                    )
+
+
+from datetime import datetime
+
+# Crear lista de hitos
+hitos = [
+    cal_hito(datetime(2025, 10, 15), 1),
+    cal_hito(datetime(2025, 11, 3), 2),
+    cal_hito(datetime(2025, 12, 25), 3),
+    cal_hito(datetime(2026, 1, 1), 1),
+]
+
+mostrar_calendario_con_hitos(
+    mes_inicio=datetime(2025, 10, 1),
+    mes_fin=datetime(2026, 2, 28),
+    hitos=hitos
+)
