@@ -180,3 +180,5 @@ df = pd.DataFrame(data)
 with st.container(border=True):
     plot = UI.my_timeline(df)
     st.write(plot)
+
+st.file_uploader('SUBE SAP', type=['xlsx'], accept_multiple_files=False, width='stretch')

@@ -1,4 +1,5 @@
 import os, json
+from typing import List, Dict, Any, get_type_hints
 # from typing import TypedDict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -6,13 +7,12 @@ from dataclasses import dataclass, asdict
 import pandas as pd
 from pyreports.xlsx import DF_REPORT
 from mysqlite import *
-from supabase import create_client, Client
-from supabase.client import ClientOptions
-import streamlit as st
+
+# import streamlit as st
 import plotly.graph_objects as go
 # import plotly.express as px # https://python-charts.com/es/evolucion/diagrama-gantt-plotly/
 # import numpy as np
-import matplotlib.pyplot as plt
+
 
 
 ## DB
@@ -20,66 +20,44 @@ import matplotlib.pyplot as plt
 
 SQLITE: bool = 1
 if SQLITE:
-    path_db = r"PPI.db"
+    # path_db = r"PPI.db"
+    path_file = 'POMT_production_manager.db'
+    path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
+    path_db = os.path.join(path_net, path_file)
     DB = SQL(path_db=path_db)
+    # DB = SQL(path_db=path_file)
 
-SUPABASE: bool = 0
-if SUPABASE:
-    url: str = st.secrets.connections.supabase.SUPABASE_URL
-    key: str = st.secrets.connections.supabase.SUPABASE_KEY
-    supabase: Client = create_client(
-        url,
-        key,
-        options=ClientOptions(
-            postgrest_client_timeout=10,
-            storage_client_timeout=10,
-            schema="public",
-        )
-    )
+# SUPABASE: bool = 0
+# if SUPABASE:
+#     from supabase import create_client, Client
+#     from supabase.client import ClientOptions
+#     url: str = st.secrets.connections.supabase.SUPABASE_URL
+#     key: str = st.secrets.connections.supabase.SUPABASE_KEY
+#     supabase: Client = create_client(
+#         url,
+#         key,
+#         options=ClientOptions(
+#             postgrest_client_timeout=10,
+#             storage_client_timeout=10,
+#             schema="public",
+#         )
+#     )
+
 
 ## DB
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-@dataclass
-class Usuario:
-    '''
-    `Args:`
-    - id : str
-    - nombre : str
-    - apellidos : str
-    - mail : str
-    - info : str
-    - password : str
-    - DB : dict
-    - firm : str
-    
-    `Functions:`
-    - get_form_sql -> Usuario
-    - get_form -> str
-    '''
-    id: str
-    nombre: str
-    apellidos: str
-    mail: str
-    info: str
-    password: str
-    DB: dict
-    firm: str
 
-    @classmethod
-    def get_form_sql(cls, sql_data: tuple) -> 'Usuario':
-        if sql_data[6] and isinstance(sql_data[6], str):
-            sql_data[6] = json.loads(sql_data[6])
-        return cls(*sql_data)
 
-    # @staticmethod
-    def get_firm(self) -> str:
-        return f'{self.id} / {datetime.now()}'
+    # # @staticmethod
+    # def get_firm(self) -> str:
+    #     return f'{self.id} / {datetime.now()}'
 
 class Alarmas(Enum):
     red     = ("🟥", 1)
     yellow  = ("🟨", 2)
     green   = ("🟩", 3)
+    grey    = ("⬜", 4)
 
     @classmethod
     def id_by_color(cls):
@@ -110,22 +88,40 @@ class Estados(Enum):
     escalar = ('⏫', 3)
     completo = ('✅', 4)
 
+    def __init__(self, icon: str, id: int):
+        self.icon = icon
+        self.id = id
+
     @classmethod
     def get_estado(cls, estado: int) -> str:
         if not isinstance(estado, int):
             return None
-        if estado not in [e.value[1] for e in cls]:
+        if estado not in [e.id for e in cls]:
             return None
         else:
-            return [e.value[0] for e in cls][estado-1]
+            return [e.icon for e in cls][estado-1]
+    
+    @classmethod
+    def get_id(cls, estado: str) -> int:
+        if not estado or not isinstance(estado, str):
+            return None
+        if estado not in [e.icon for e in cls]:
+            return None
+        else:
+            return [e.icon for e in cls].index(estado) + 1
 
     @classmethod
     def get_estados(cls) -> List[str]:
         return [e.name for e in cls]
+    
+    @classmethod
+    def get_estados_icon(cls) -> List[str]:
+        return [e.icon for e in cls]
+    
 
     @classmethod
     def id_by_estado(cls):
-        return {a.value[1]: a.value[0] for a in cls}
+        return {a.id: a.value[0] for a in cls}
 
 class Causas(Enum):
     LM = 'LM  |  LISTA DE MATERIALES'
@@ -134,6 +130,12 @@ class Causas(Enum):
     PR = 'PR  |  PEDIDOS EN RETRASO'
     EM = 'EM  |  ENTREGA MANUFACTURING EN RIESGO'
     CA = 'CA  |  CAMBIO DE ALCANCE'
+
+    def get_ids() -> List[str]:
+        return [c.name for c in Causas]
+    
+    def get_values() -> List[str]:
+        return [c.value for c in Causas]
 
 @dataclass
 class Modificacion:
@@ -149,8 +151,140 @@ class Modificacion:
     # def to_json(self):
     #     return json.dumps(self.to_dict())
 
+
 ## DATA
 ## ____________________________________________________________________________________________________________________________________________________________________
+
+class ORM:
+    '''
+    Clases de datos:
+    - Usuario
+    - Pedido
+    - Hito
+    - Accion
+    '''
+
+    @dataclass
+    class Usuario:
+        '''
+        `Args:`
+        - id : str
+        - nombre : str
+        - apellidos : str
+        - mail : str
+        - info : str
+        - password : str
+        - DB : dict
+        - firm : str
+        
+        `Functions:`
+        - get_form_sql -> Usuario
+        - get_form -> str
+        '''
+        id: str
+        nombre: str
+        apellidos: str
+        mail: str
+        info: str
+        password: str
+        DB: dict
+        firm: str
+
+        @classmethod
+        def get_form_sql(cls, sql_data: tuple) -> 'ORM.Usuario':
+            sql_data = list(sql_data)
+            if sql_data[6] and isinstance(sql_data[6], str):
+                sql_data[6] = json.loads(sql_data[6])
+            return cls(*sql_data)
+
+    @dataclass
+    class BaseData:
+        @classmethod
+        def from_dict(cls, values: Dict[str, Any]) -> 'ORM.BaseData':
+            cls_fields = {f.name for f in fields(cls)}
+            type_hints = get_type_hints(cls)
+
+            data = {}
+            for k, v in values.items():
+                if k in cls_fields:
+                    expected_type = type_hints.get(k)
+
+                    if expected_type is datetime and isinstance(v, str):
+                        data[k] = datetime.strptime(v, '%Y-%m-%d')
+                    elif isinstance(v, pd.Timestamp):
+                        data[k] = v.to_pydatetime()
+                    else:
+                        data[k] = v
+            return cls(**data)
+
+        def to_dict(self) -> Dict[str, Any]:
+            return asdict(self)
+
+        def to_sql(self) -> Dict[str, Any]:
+            '''
+            Devuelve un diccionario de valores para INSERT / UPDATE 
+            '''
+            data = asdict(self)
+            for k, v in data.items():
+                if isinstance(v, datetime):
+                    data[k] = datetime.strftime(data[k], r'%Y-%m-%d')
+
+            DB = data.get('DB', None)
+            if not DB:
+                DB = dict()
+            for k, v in DB.items():
+                if isinstance(v, datetime):
+                    self.DB[k] = v.strftime(r'%Y-%m-%d %H:%M')
+            DB = json.dumps(DB)
+            data['DB'] = DB
+
+            return data
+
+    @dataclass
+    class Pedido(BaseData):
+        id: str
+        info: str
+        bu_id: str
+        contraseña: str
+        planificador: str
+        fecha_ini: datetime
+        fecha_fin: datetime
+        alarma: int = None
+        DB: dict = None
+        firm: str = None
+
+    @dataclass
+    class Hito(BaseData):
+        id: int
+        pedido_id: str
+        grupo: str
+        nombre: str
+        fecha_req: datetime
+        fecha_plan: datetime
+        responsable: str
+        alarma: int = None
+        estado: int = None
+        info: str = None
+        DB: dict = None
+        firm: str = None
+
+    @dataclass
+    class Accion(BaseData):
+        id: str
+        pedido_id: str
+        hito_id: int
+        causa: str
+        alarma: int
+        info: str
+        accion: str
+        planificador: str
+        responsable: str
+        fecha_accion: datetime
+        fecha_req: datetime
+        estado: int = 0
+        DB: dict = None
+        firm: str = None
+
 
 def safe_json_loads(x):
     if pd.isna(x) or x == '' or x is None:
@@ -176,6 +310,12 @@ def safe_datetime(value) -> datetime:
             raise ValueError(f"No se pudo parsear la fecha string: {value}")
     else:
         raise TypeError(f"Tipo no soportado para conversión a datetime: {type(value)}")
+
+def safe_int(x) -> int:
+    try:
+        return int(x)
+    except:
+        return 0
 
 def safe_fromtimestamp(x):
     if x is None or pd.isna(x):
@@ -228,32 +368,18 @@ def get_usuarios(count: int = 0) -> 'pd.DataFrame':
         data = DB.select('SELECT * FROM usuarios')
         df = pd.DataFrame(data, columns=headers)
         return df
-    if SUPABASE:
-        data = supabase.table(table).select('*').execute().data
-        return pd.DataFrame(data)
-
-def get_usuarios_by_dept(departamento_id: str):
-    if not departamento_id:
-        return get_usuarios(st.session_state.usuarios)['id'].to_list()
-    df = get_departamentos(st.session_state.departamentos)
-    df_DB = df.loc[df['id']==departamento_id, 'DB'].squeeze()
-    if not df_DB:
-        return None
-    DB: dict = json.loads(df_DB)
-    return DB.get('usuario_id', None)
-
+    # if SUPABASE:
+    #     data = supabase.table(table).select('*').execute().data
+    #     return pd.DataFrame(data)
 
 # @st.cache_data
 def get_business_units(count: int = 0) -> 'pd.DataFrame':
     '''
     st.session_state.bu
     '''
-    headers = DB.execute("SELECT * FROM view_bunit_count LIMIT 0", fetch=4)
-    data = DB.select('SELECT * FROM view_bunit_count')
+    headers = DB.execute("SELECT * FROM view_business_unit LIMIT 0", fetch=4)
+    data = DB.select('SELECT * FROM view_business_unit')
     df = pd.DataFrame(data, columns=headers)
-    df['🟥'] = df['alarma_1']
-    df['🟨'] = df['alarma_2']
-    df['🟩'] = df['alarma_3']
     return df
 
 # @st.cache_data
@@ -261,57 +387,79 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     '''
     st.session_state.pedidos
     '''
-    # headers = DB.execute("SELECT * FROM view_pedidos_count LIMIT 0", fetch=4)
-    # data = DB.select('SELECT * FROM view_pedidos_count')
-    headers = DB.execute("SELECT * FROM pedidos LIMIT 0", fetch=4)
-    data = DB.select('SELECT * FROM pedidos')
-
+    table = 'view_pedidos'
+    headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
+    data = DB.select(f'SELECT * FROM {table}')
     df = pd.DataFrame(data, columns=headers)
-    df['#'] = df['alarma'].map(Alarmas.id_by_color())
     df['DB'] = df['DB'].apply(safe_json_loads)
-    # df['FECHA_INI'] = df['fecha_ini'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
-    # df['FECHA_FIN'] = df['fecha_fin'].apply(safe_fromtimestamp)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
     df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime)  # pd.to_datetime(df['fecha_ini'].apply(datetime.fromtimestamp))
     df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime)  # pd.to_datetime(df['fecha_fin'].apply(datetime.fromtimestamp))
     df['contraseña'] = df['contraseña'].apply(safe_contraseña)
-    # df['∑'] = df['total_acciones']
-    # for c in Causas:
-    #     df[c.name] = df[c.name].map(Alarmas.id_by_color())
-    
+    df['#'] = df['alarma'].map(Alarmas.id_by_color())
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].fillna(0)
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].apply(lambda x: 0 if not x else x)
+    # df['pde_retraso_dias'] = df['pde_retraso_dias'].apply(safe_int) # BUG
+    for c in Causas:
+        df[c.name] = df[c.name].map(Alarmas.id_by_color())
+
     return df
 
-def get_hitos(pedido_id: str) -> 'pd.DataFrame':
+def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
+    if not departamento_id:
+        return get_usuarios(count_usuarios)['id'].to_list()
+    df = get_departamentos(count_departamentos)
+    df_DB = df.loc[df['id']==departamento_id, 'DB'].squeeze()
+    if not df_DB:
+        return None
+    DB: dict = json.loads(df_DB)
+    return DB.get('usuario_id', None)
+
+def get_hitos(pedido_id: str = None) -> 'pd.DataFrame':
     '''
     st.session_state.hitos
     '''
-    headers = DB.execute("SELECT * FROM hitos LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM hitos WHERE pedido_id="{pedido_id}";')
+    tabla = 'view_hitos'
+    headers = DB.execute(f"SELECT * FROM {tabla} LIMIT 0;", fetch=4)
+    if pedido_id:
+        data = DB.select(f'SELECT * FROM {tabla} WHERE pedido_id="{pedido_id}";')
+    else:
+        data = DB.select(f'SELECT * FROM {tabla};')
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    df['fecha_ini'] = df['fecha_ini'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
-    df['fecha_fin'] = df['fecha_fin'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
+    for c in Causas:
+        df[c.name] = df[c.name].map(Alarmas.id_by_color())
+    df['fecha_req'] = df['fecha_req'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
+    df['fecha_plan'] = df['fecha_plan'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
     if not df.empty:
-        df['Δ'] = (df["fecha_fin"] - pd.Timestamp(datetime.today().date())).dt.days
+        df['Δ'] = (df["fecha_plan"] - pd.Timestamp(datetime.today().date())).dt.days
     else:
         df['Δ'] = pd.Series(dtype='int')
-    # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
     df['DB'] = df['DB'].apply(safe_json_loads)
     return df
 
 # @st.cache_data
-def get_acciones(pedido_id: str) -> 'pd.DataFrame':
+def get_acciones(pedido_id: str = None, hito_id: int = None) -> 'pd.DataFrame':
     '''
-    st.session_state.action
+    st.session_state.acciones
     '''
     headers = DB.execute("SELECT * FROM acciones LIMIT 0;", fetch=4)
-    data = DB.select(f'SELECT * FROM acciones WHERE pedido_id="{pedido_id}";')
+    sql = 'SELECT * FROM acciones'
+    filters = []
+    if pedido_id:
+        filters.append(f"pedido_id = '{pedido_id}'")
+    if hito_id:
+        filters.append(f"hito_id = {hito_id}")
+    if filters:
+        final_query = f"{sql} WHERE " + " AND ".join(filters)
+    else:
+        final_query = sql
+    data = DB.select(final_query)
     df = pd.DataFrame(data, columns=headers)
     df['#'] = df['alarma'].map(Alarmas.id_by_color())
-    df['fecha_accion'] = df['fecha_accion'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
-    df['fecha_req'] = df['fecha_req'].apply(safe_fromtimestamp) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
-    # df['estado'] = df['estado'].map({1: True, 0: pd.NA, None: pd.NA}).astype("integer")
+    df['fecha_accion'] = df['fecha_accion'].apply(safe_datetime) # pd.to_datetime(df['fecha_accion'].apply(datetime.fromtimestamp))
+    df['fecha_req'] = df['fecha_req'].apply(safe_datetime) # pd.to_datetime(df['fecha_req'].apply(datetime.fromtimestamp))
     df['estado_id'] = df['estado']
     df['estado'] = df['estado'].map(Estados.id_by_estado())
     df['DB'] = df['DB'].apply(safe_json_loads)
@@ -327,21 +475,16 @@ def get_productos(count: int = 0):
     df = pd.DataFrame(data, columns=headers)
     return df
 
-def report_pedidos():
-    df = get_pedidos(st.session_state.pedidos)
-    df = df.drop(['DB', '∑', '#', 'fecha_ini', 'fecha_fin'], axis=1)
-    path = r'temp\report_pedidos.xlsx'
-    if os.path.exists(path):
-        os.remove(path)
-    DF_REPORT(path=path, dataFrame=df)
-    with open(path, "rb") as f:
-        archivo_bytes = f.read()
-    return archivo_bytes
+def get_templates(count: int = 0) -> List[str]:
+    data = DB.select("SELECT DISTINCT(template) FROM templates;")
+    return [d[0] for d in data]
 
 
 class UI:
     def color_cells(value: int):
-        if value > 0:
+        if not isinstance(value, int):
+            return ''
+        elif value > 0:
             return 'background-color: #d4edda'  # verde claro
         elif value <= 0:
             return 'background-color: #f8d7da'  # rojo claro
@@ -368,6 +511,8 @@ class UI:
             return asdict(self)
 
     def my_timeline(df: pd.DataFrame):
+        import streamlit as st # BUG
+
         # Convertir fechas
         df["fecha_ini"] = pd.to_datetime(df["fecha_ini"])
         df["fecha_fin"] = pd.to_datetime(df["fecha_fin"])
@@ -458,6 +603,8 @@ class UI:
         return plt
 
     def my_hitoline(df: pd.DataFrame, hito_col: str = "hito", fecha_col: str = "fecha"):
+        import streamlit as st # BUG
+        import matplotlib.pyplot as plt
         # Asegurarse que la columna de fecha sea datetime
         df[fecha_col] = pd.to_datetime(df[fecha_col])
 
@@ -518,6 +665,7 @@ class UI:
         '''
         Ejemplo de Gantt (Borrar)
         '''
+        import streamlit as st # BUG
         # # CSS para ocultar el encabezado de Streamlit (y filas de menú)
         # hide_style = """
         # <style>
@@ -597,26 +745,31 @@ class UI:
             st.plotly_chart(fig, width='content')
 
     def my_calendar():
-        import pandas as pd
-        import numpy as np
-        import streamlit as st
-        import calplot
+        import streamlit as st # BUG
+        import warnings
+        warnings.filterwarnings("ignore", message="findfont: Font family 'Helvetica' not found.")
+        from matplotlib import rcParams
+        rcParams['font.family'] = 'Neo Sans'
+
+        import calplot ## https://pypi.org/project/calplot/
         import matplotlib.pyplot as plt
         from matplotlib.colors import ListedColormap
         from dateutil.relativedelta import relativedelta
-
+        
+        # Cambiar la fuente globalmente a 'DejaVu Sans' (viene con matplotlib)
+        
         # Tu DB
         columns = DB.execute('SELECT * FROM hitos LIMIT 0', fetch=4)
         data = DB.select('SELECT * FROM hitos')
         df = pd.DataFrame(data, columns=columns)
 
         # Convertir fecha_fin a datetime
-        df['fecha_fin'] = pd.to_datetime(df['fecha_fin'])
-        alarma_por_fecha = df.groupby('fecha_fin')['alarma'].min()
+        df['fecha_plan'] = pd.to_datetime(df['fecha_plan'])
+        alarma_por_fecha = df.groupby('fecha_plan')['alarma'].min()
 
         # Calcular valores por defecto para date_input
-        min_fecha = df['fecha_fin'].min()
-        max_fecha = df['fecha_fin'].max()
+        min_fecha = df['fecha_plan'].min()
+        max_fecha = df['fecha_plan'].max()
 
         # Restar 1 mes al mínimo y sumar 1 mes al máximo usando relativedelta
         fecha_desde_def = min_fecha - relativedelta(months=1)
@@ -631,7 +784,7 @@ class UI:
         alarma_filtrada = alarma_por_fecha.loc[fecha_desde:fecha_hasta]
 
         # Definir colormap
-        colores = ['red', 'yellow', 'green']
+        colores = ['grey', 'red', 'yellow', 'green']
         cmap = ListedColormap(colores)
 
         # Crear gráfico calplot
@@ -645,6 +798,8 @@ class UI:
         # Mostrar gráfico en Streamlit
         st.pyplot(fig)
 
+    def df_calendar():
+        pass
 
 
 class HTML:

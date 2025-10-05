@@ -1,3 +1,13 @@
 streamlit
+plotly
 rapidfuzz
 git+https://github.com/PaulFilms/MySQLite.git@main
+git+https://github.com/PaulFilms/PyReports.git@main
+
+## UNDER TESTING
+ollama
+supabase
+matplotlib
+# streamlit-timeline # https://pypi.org/project/streamlit-timeline/
+calplot # https://pypi.org/project/calplot/
+Office365-REST-Python-Client # Extracción de datos desde SharePoint
