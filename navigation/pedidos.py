@@ -119,7 +119,7 @@ if pedido != None:
             Acciones.tbl(pedido_id=pedido.id, hito_id=hito.id, f_key='by_hito')
 
     with tab_pdca: ## ALL PDCA
-        accion = Acciones.tbl(pedido_id=pedido.id, hito_id=hito.id if hito else None, f_key='by_gpi')
+        accion = Acciones.tbl(pedido_id=pedido.id, hito_id=None, f_key='by_gpi')
         if accion:
             pass
         # Acciones.tbl_acciones(hito.id)

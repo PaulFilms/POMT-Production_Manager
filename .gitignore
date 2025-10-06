@@ -6,3 +6,5 @@ test.py
 test.ipynb
 *.db
 secrets.toml
+
+my_daypilot/

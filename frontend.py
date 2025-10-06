@@ -308,13 +308,13 @@ class Pedidos:
                 'planificador': st.column_config.Column('IP', width='small'),
                 'fecha_ini': st.column_config.DatetimeColumn('FECHA INICIO', format="YYYY-MM-DD", width='small'),
                 'fecha_fin': st.column_config.DatetimeColumn('FECHA FIN', format="YYYY-MM-DD", width='small'),
-                '∑_hitos': st.column_config.NumberColumn('∑_hitos', width=50),
-                '∑_acciones': st.column_config.NumberColumn('∑_acciones', width=50),
+                '∑_hitos': st.column_config.NumberColumn('∑ HITOS', width=50),
+                '∑_acciones': st.column_config.NumberColumn('∑ ACCIONES', width=50),
                 'pde_retraso_dias': st.column_config.NumberColumn('PDE RETRASO (Días)', width='small'),
                 'pde_material_critico': st.column_config.Column('PDE MATERIAL CRÍTICO', width='small'),
                 'pde_description': st.column_config.Column('PDE DESCRIPCIÓN', width='small'),
                 'pde_actualizado': st.column_config.DatetimeColumn('PDE ACTUALIZACIÓN', format="YYYY-MM-DD", width='small'),
-
+                'pde_usuario': st.column_config.Column('PDE USUARIO', width='small'),
             }
             for c in Causas:
                 columns_config[c.name] = st.column_config.TextColumn(c.name, width=50)
