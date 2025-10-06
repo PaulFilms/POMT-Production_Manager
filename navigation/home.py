@@ -19,8 +19,9 @@ Este proyecto está en fase de pruebas, puede tener errores de funcionamiento.
 
 Para mas información, ponte en contacto con:
 
-- Pablo GP / pgonzalezp@indra.es
 - Israel HS / ihernandez@indra.es
+- Pablo GP / pgonzalezp@indra.es
+- Luis GC / lgarridoc@indra.es
 ''')
 
 # st.image(r'assets\schema.png')

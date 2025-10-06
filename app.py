@@ -6,8 +6,7 @@ from functions import *
 if __name__ == '__main__':
 
     st.set_page_config(
-        page_title="POMT", # PODUCTION MANAGER
-        # page_icon='🎛️',
+        page_title="PRODUCTION MNGR", # PODUCTION MANAGER
         page_icon=r'assets/logo.svg',
         layout="wide", # "centered",
         initial_sidebar_state= "auto" # "collapsed"

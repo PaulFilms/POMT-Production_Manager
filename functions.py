@@ -20,12 +20,13 @@ import plotly.graph_objects as go
 
 SQLITE: bool = 1
 if SQLITE:
-    # path_db = r"PPI.db"
     path_file = 'POMT_production_manager.db'
     path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
-    path_db = os.path.join(path_net, path_file)
-    DB = SQL(path_db=path_db)
-    # DB = SQL(path_db=path_file)
+    if os.path.exists(path_net):
+        path_db = os.path.join(path_net, path_file)
+        DB = SQL(path_db=path_db)
+    else:
+        DB = SQL(path_db=path_file)
 
 # SUPABASE: bool = 0
 # if SUPABASE:
@@ -261,7 +262,8 @@ class ORM:
         nombre: str
         fecha_req: datetime
         fecha_plan: datetime
-        responsable: str
+        departamento: str = None
+        responsable: str = None
         alarma: int = None
         estado: int = None
         info: str = None

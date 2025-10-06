@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS "hitos" (
 	"nombre"	TEXT NOT NULL,
 	"fecha_req"	TEXT DEFAULT '2025-01-01',
 	"fecha_plan"	TEXT DEFAULT '2025-01-01',
+	"departamento"	TEXT,
 	"responsable"	TEXT,
 	"alarma"	INTEGER DEFAULT 0,
 	"estado"	INTEGER DEFAULT 0,
@@ -101,34 +102,6 @@ CREATE TABLE IF NOT EXISTS "productos" (
 	"firm"	TEXT,
 	PRIMARY KEY("id")
 );
-
--- CREATE TABLE "entregas" (
--- 	"id"	INTEGER,
--- 	"producto_id"	TEXT,
--- 	"hito_id"	TEXT,
--- 	"fecha_req"	TEXT DEFAULT '2025-01-01',
--- 	"fecha_plan"	TEXT DEFAULT '2025-01-01',
--- 	"estado"	INTEGER DEFAULT 0,
--- 	"info"	TEXT,
--- 	"DB"	BLOB DEFAULT '{}',
--- 	"firm"	TEXT
--- )
-
--- CREATE TABLE IF NOT EXISTS "templates" (
--- 	"id"	INTEGER NOT NULL UNIQUE,
--- 	"template"	TEXT NOT NULL,
--- 	"nombre"	TEXT NOT NULL,
--- 	"orden"	INTEGER NOT NULL,
--- 	"porcentage"	INTEGER NOT NULL,
--- 	"info"	TEXT,
--- 	PRIMARY KEY("id")
--- )
-
--- DROP INDEX IF EXISTS "main"."indx_templates";
--- CREATE INDEX "indx_templates" ON "templates" (
--- 	"template"	ASC,
--- 	"orden"	ASC
--- );
 
 
 
@@ -243,14 +216,14 @@ LEFT JOIN (
         MIN(CASE WHEN causa = 'CA' THEN alarma END) AS CA
     FROM acciones
 --     WHERE estado <> 4 OR estado IS NULL
-    GROUP BY hito_id
+    GROUP BY pedido_id
 ) a ON gpi.id = a.pedido_id
 
 -- Subconsulta pde
 LEFT JOIN csv_grafos gr ON gpi.id=gr."RTGP/ PI"
 LEFT JOIN csv_pde_files pde ON gr."ELEMENTO PEP"=pde.PEP
 
-ORDER BY gpi.id
+ORDER BY gpi.id;
 
 
 
@@ -287,7 +260,7 @@ LEFT JOIN (
 	GROUP BY hito_id
 ) a ON hitos.id=a.hito_id
 
-ORDER BY hitos.id
+ORDER BY hitos.id;
 
 
 
@@ -322,7 +295,5 @@ FROM hitos
 WHERE hitos.estado <> 4
 ORDER BY hitos.fecha_plan ASC
 LIMIT 3;
-
-
 
 

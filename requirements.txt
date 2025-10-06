@@ -9,5 +9,5 @@ ollama
 supabase
 matplotlib
 # streamlit-timeline # https://pypi.org/project/streamlit-timeline/
-calplot # https://pypi.org/project/calplot/
-Office365-REST-Python-Client # Extracción de datos desde SharePoint
+# calplot # https://pypi.org/project/calplot/
+# Office365-REST-Python-Client # Extracción de datos desde SharePoint
