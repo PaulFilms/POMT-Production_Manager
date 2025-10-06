@@ -66,6 +66,112 @@ pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARD
 ## UX
 ## ____________________________________________________________________________________________________________________________________________________________________
 
+
+class Caminos:
+    def tbl(pedido_id: str):
+        import pandas as pd
+        import plotly.graph_objects as go
+        import streamlit as st
+        from estilos import style_metric_cards
+        from functions import DB  # conexión global SQL definida en tu proyecto
+
+        # --- 1️⃣ OBTENER EL ARCHIVO ASOCIADO AL PEDIDO ---
+        sql_archivo = "SELECT pde_archivo FROM view_pedidos WHERE id = ?;"
+        result = DB.execute(sql_archivo, values=[pedido_id], fetch=1)
+        if not result:
+            st.warning(f"No se encontró ningún archivo asociado al pedido '{pedido_id}'")
+            return
+        
+        archivo = result[0]
+
+        # --- 2️⃣ CONSTRUIR CONDICIÓN PARA LOS 20 CAMINOS CRÍTICOS ---
+        columnas_cc = [f'"Camino Critico {i}"' for i in range(1, 21)]
+        where_cond = " OR ".join([f"{col} GLOB '[0-9]*'" for col in columnas_cc])
+
+        sql_items = f"""
+            SELECT "CODIGO", "Estado MD4C"
+            FROM csv_pde_items
+            WHERE filename = ?
+            AND ({where_cond})
+            ORDER BY rowid DESC
+            LIMIT 20;
+        """
+
+        data = DB.execute(sql_items, values=[archivo], fetch=2)
+        headers = DB.execute("SELECT 'CODIGO', 'Estado MD4C' FROM csv_pde_items LIMIT 0;", fetch=4)
+        df = pd.DataFrame(data, columns=["CODIGO", "Estado MD4C"])
+        print(df.head())
+
+        if df.empty:
+            st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{archivo}'")
+            return
+
+        # --- 3️⃣ LIMPIAR DATOS ---
+        # Eliminar filas con Estado MD4C vacío o nulo
+        df = df[df["Estado MD4C"].notna() & (df["Estado MD4C"] != "")]
+        if df.empty:
+            st.warning("No hay valores válidos en la columna 'Estado MD4C'.")
+            return
+
+        # --- 4️⃣ AGRUPACIÓN POR ESTADO ---
+        conteo = df["Estado MD4C"].value_counts().to_dict()
+        total = sum(conteo.values())
+
+        # --- 5️⃣ COLORES PERSONALIZADOS ---
+        # Puedes ajustar los colores según los estados reales que devuelva tu BD
+        palette = [
+            "#FFEB3B", "#03A9F4", "#9C27B0", "#03A9F4", "#9C27B0", "#FF9800", "#607D8B"
+        ]
+        estados_unicos = list(conteo.keys())
+        colores = {estado: palette[i % len(palette)] for i, estado in enumerate(estados_unicos)}
+
+        # --- 6️⃣ VISUALIZACIÓN ---
+        st.subheader(f"📦 Caminos Críticos — {pedido_id}", divider='orange')
+
+        # --- Gráfico Doughnut ---
+        col_graf, col_tabla = st.columns([0.6, 0.4])
+        with col_graf:
+            fig = go.Figure(
+                data=[go.Pie(
+                    labels=list(conteo.keys()),
+                    values=list(conteo.values()),
+                    hole=0.6,
+                    textinfo="label+percent",
+                    marker=dict(colors=[colores[k] for k in conteo.keys()])
+                )]
+            )
+            fig.update_layout(
+                height=350,
+                margin=dict(t=20, b=20, l=10, r=10),
+                showlegend=True,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- Tabla con las columnas reales ---
+        with col_tabla:
+            st.markdown(f"### Codigos Retrasados")
+            st.dataframe(
+                df[["CODIGO", "Estado MD4C"]],
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "CODIGO": st.column_config.Column("Código", width="small"),
+                    "Estado MD4C": st.column_config.Column("Estado MD4C", width="medium"),
+                }
+            )
+
+        # --- Métricas debajo ---
+        st.container(border=False, height=10)
+        cols = st.columns(len(estados_unicos))
+        for i, estado in enumerate(estados_unicos):
+            valor = conteo[estado]
+            porcentaje = valor / total * 100
+            cols[i].metric(estado, f"{valor}", f"{porcentaje:.1f}%", label_visibility="visible")
+
+        style_metric_cards(border_left_color="#ff9800")
+
+
+
 class Pedidos:
     @st.dialog('➕ NUEVA GPI', width='medium')
     def new() -> None:

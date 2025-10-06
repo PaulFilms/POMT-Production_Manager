@@ -1,6 +1,8 @@
 __pycache__/
 .env
 .venv
+.vscode
+venv
 temp/
 test.py
 test.ipynb
@@ -9,3 +11,4 @@ secrets.toml
 PruebasDB.ipynb
 mysqlite.py
 actualizar_tablas.py
+prb.ipynb

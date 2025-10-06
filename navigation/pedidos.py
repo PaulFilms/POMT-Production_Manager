@@ -3,7 +3,16 @@
 - send_mail / funcion incompleta
 - update_xlsx / Carga por jupyter
 - timeline / Formato no normalizado
+
+
+
+
 '''
+
+
+
+
+
 import tempfile, json
 from time import sleep
 from enum import Enum
@@ -294,6 +303,10 @@ if pedido != None:
         # st.write(df_acciones)
         Acciones.tbl(pedido.id)
         # Acciones.tbl_acciones(hito.id)
+    
+    with tab_manufact:
+        Caminos.tbl(pedido.id)
+
 
     #         with tab_hito_log:
     #             modificaciones = hito.DB.get('modificaciones', None)

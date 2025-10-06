@@ -23,6 +23,7 @@ if SQLITE:
     # path_db = r"PPI.db"
     path_file = 'POMT_production_manager.db'
     path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
+    #path_net = r"C:\Users\lgarridoc\Documents"
     path_db = os.path.join(path_net, path_file)
     DB = SQL(path_db=path_db)
     # DB = SQL(path_db=path_file)
@@ -403,6 +404,19 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
         df[c.name] = df[c.name].map(Alarmas.id_by_color())
 
     return df
+
+
+# @st.cache_data
+def get_pde_items(count: int = 0) -> 'pd.DataFrame':
+    '''
+    
+    '''
+    table = 'csv_pde_items'
+    if SQLITE:
+        headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
+        data = DB.select('SELECT * FROM csv_pde_items')
+        df = pd.DataFrame(data, columns=headers)
+        return df
 
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
     if not departamento_id:
