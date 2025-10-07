@@ -1,4 +1,6 @@
 streamlit
+ipykernel
+debugpy
 plotly
 rapidfuzz
 git+https://github.com/PaulFilms/MySQLite.git@main

@@ -406,6 +406,19 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
 
     return df
 
+
+# @st.cache_data
+def get_pde_items(count: int = 0) -> 'pd.DataFrame':
+    '''
+    
+    '''
+    table = 'csv_pde_items'
+    if SQLITE:
+        headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
+        data = DB.select('SELECT * FROM csv_pde_items')
+        df = pd.DataFrame(data, columns=headers)
+        return df
+
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
     if not departamento_id:
         return get_usuarios(count_usuarios)['id'].to_list()

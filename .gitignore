@@ -1,10 +1,15 @@
 __pycache__/
 .env
 .venv
+.vscode
+venv
 temp/
 test.py
 test.ipynb
 *.db
 secrets.toml
-
+PruebasDB.ipynb
+mysqlite.py
+actualizar_tablas.py
+prb.ipynb
 my_daypilot/
