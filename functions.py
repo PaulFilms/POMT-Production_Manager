@@ -8,7 +8,7 @@ import pandas as pd
 from pyreports.xlsx import DF_REPORT
 from mysqlite import *
 
-# import streamlit as st
+import streamlit as st
 import plotly.graph_objects as go
 # import plotly.express as px # https://python-charts.com/es/evolucion/diagrama-gantt-plotly/
 # import numpy as np
@@ -384,7 +384,7 @@ def get_business_units(count: int = 0) -> 'pd.DataFrame':
     df = pd.DataFrame(data, columns=headers)
     return df
 
-# @st.cache_data
+@st.cache_data
 def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     '''
     st.session_state.pedidos
@@ -407,10 +407,10 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
     return df
 
 
-# @st.cache_data
+@st.cache_data
 def get_pde_items(count: int = 0) -> 'pd.DataFrame':
     '''
-    
+    st.session_state.pde_items
     '''
     table = 'csv_pde_items'
     if SQLITE:
@@ -418,6 +418,7 @@ def get_pde_items(count: int = 0) -> 'pd.DataFrame':
         data = DB.select('SELECT * FROM csv_pde_items')
         df = pd.DataFrame(data, columns=headers)
         return df
+
 
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
     if not departamento_id:

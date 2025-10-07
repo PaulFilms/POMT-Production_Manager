@@ -1,6 +1,7 @@
 from time import sleep
 from datetime import date, datetime
 from typing import TYPE_CHECKING
+import pandas as pd
 
 import streamlit as st
 from functions import *
@@ -26,6 +27,7 @@ def session_state_start():
     if not 'departamentos' in st.session_state: st.session_state.departamentos = 1
     if not 'acciones' in st.session_state: st.session_state.acciones = 1
     if not 'productos' in st.session_state: st.session_state.productos = 1
+    if not 'pde_items' in st.session_state: st.session_state.pde_items = 1
 
 def get_firm():
     return f"{st.session_state.login.id} [{datetime.now().strftime(r'%Y-%m-%d / %H:%M')}]"
@@ -69,58 +71,127 @@ pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARD
 
 
 
+## UI
+## ____________________________________________________________________________________________________________________________________________________________________
+
+class UI:
+    DEFAULT_BACKGROUND_COLOR = "#FFF"
+    DEFAULT_BORDER_COLOR = "#CCC"
+
+    def style_metric_cards(
+        background_color: str = DEFAULT_BACKGROUND_COLOR,
+        border_size_px: int = 1,
+        border_color: str = DEFAULT_BORDER_COLOR,
+        border_radius_px: int = 5,
+        border_left_color: str = "#9AD8E1",
+        box_shadow: bool = True,
+        ) -> None:
+        """
+        Applies a custom style to st.metrics in the page
+
+        Args:
+            background_color (str, optional): Background color. Defaults to "#FFF" or "#292D34" in dark mode.
+            border_size_px (int, optional): Border size in pixels. Defaults to 1.
+            border_color (str, optional): Border color. Defaults to "#CCC" or "#292D34" in dark mode.
+            border_radius_px (int, optional): Border radius in pixels. Defaults to 5.
+            border_left_color (str, optional): Borfer left color. Defaults to "#9AD8E1".
+            box_shadow (bool, optional): Whether a box shadow is applied. Defaults to True.
+        """
+
+        box_shadow_str = (
+            "box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;"
+            if box_shadow
+            else "box-shadow: none !important;"
+        )
+        st.markdown(
+            f"""
+            <style>
+                div[data-testid="stMetric"],
+                div[data-testid="metric-container"] {{
+                    background-color: {background_color};
+                    border: {border_size_px}px solid {border_color};
+                    padding: 5% 5% 5% 10%;
+                    border-radius: {border_radius_px}px;
+                    border-left: 0.5rem solid {border_left_color} !important;
+                    {box_shadow_str}
+                }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    def write(text: str):
+        '''
+        INCOMPLETE 
+        Renderizar un texto y usar fuente Neo Sans
+        '''
+        return
+
+
+
 ## UX
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-
 class Caminos:
     def tbl(pedido_id: str):
-        import pandas as pd
         import plotly.graph_objects as go
-        import streamlit as st
         from estilos import style_metric_cards
         from functions import DB  # conexión global SQL definida en tu proyecto
 
         # --- 1️⃣ OBTENER EL ARCHIVO ASOCIADO AL PEDIDO ---
-        sql_archivo = "SELECT pde_archivo FROM view_pedidos WHERE id = ?;"
-        result = DB.execute(sql_archivo, values=[pedido_id], fetch=1)
-        if not result:
-            st.warning(f"No se encontró ningún archivo asociado al pedido '{pedido_id}'")
-            return
+        # sql_archivo = "SELECT pde_archivo FROM view_pedidos WHERE id = ?;"
+        # result = DB.execute(sql_archivo, values=[pedido_id], fetch=1)
+        # if not result:
+        #     st.warning(f"No se encontró ningún archivo asociado al pedido '{pedido_id}'")
+        #     return
         
-        archivo = result[0]
+        # archivo = result[0]
+        df_pedidos = get_pedidos(st.session_state.pedidos)
+        archivo = df_pedidos[df_pedidos['id']==pedido_id]['pde_archivo']
+
 
         # --- 2️⃣ CONSTRUIR CONDICIÓN PARA LOS 20 CAMINOS CRÍTICOS ---
         columnas_cc = [f'"Camino Critico {i}"' for i in range(1, 21)]
-        where_cond = " OR ".join([f"{col} GLOB '[0-9]*'" for col in columnas_cc])
+        # where_cond = " OR ".join([f"{col} GLOB '[0-9]*'" for col in columnas_cc])
 
-        sql_items = f"""
-            SELECT "CODIGO", "Estado MD4C"
-            FROM csv_pde_items
-            WHERE filename = ?
-            AND ({where_cond})
-            ORDER BY rowid DESC
-            LIMIT 20;
-        """
+        # sql_items = f"""
+        #     SELECT "CODIGO", "Estado MD4C"
+        #     FROM csv_pde_items
+        #     WHERE filename = ?
+        #     AND ({where_cond})
+        #     ORDER BY rowid DESC
+        #     LIMIT 20;
+        # """
 
-        data = DB.execute(sql_items, values=[archivo], fetch=2)
-        headers = DB.execute("SELECT 'CODIGO', 'Estado MD4C' FROM csv_pde_items LIMIT 0;", fetch=4)
-        df = pd.DataFrame(data, columns=["CODIGO", "Estado MD4C"])
-        print(df.head())
+        # data = DB.execute(sql_items, values=[archivo], fetch=2)
+        df_items = get_pde_items()
+        # headers = DB.execute("SELECT 'CODIGO', 'Estado MD4C' FROM csv_pde_items LIMIT 0;", fetch=4)
+        df_items = df_items[df_items['filename']==archivo]
+        for col in columnas_cc:
+            df_items = df_items[df_items[col]!=None]
+        # print(df.head())
 
-        if df.empty:
+        # if df.empty:
+        #     st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{archivo}'")
+            # return
+
+        if df_items.empty:
             st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{archivo}'")
             return
 
         # --- 3️⃣ LIMPIAR DATOS ---
         # Eliminar filas con Estado MD4C vacío o nulo
-        df = df[df["Estado MD4C"].notna() & (df["Estado MD4C"] != "")]
-        if df.empty:
+        # df = df[df["Estado MD4C"].notna() & (df["Estado MD4C"] != "")]
+        # if df.empty:
+        #     st.warning("No hay valores válidos en la columna 'Estado MD4C'.")
+        #     return
+        df_items = df_items[df_items["Estado MD4C"].notna() & (df_items["Estado MD4C"] != "")]
+        if df_items.empty:
             st.warning("No hay valores válidos en la columna 'Estado MD4C'.")
             return
 
         # --- 4️⃣ AGRUPACIÓN POR ESTADO ---
-        conteo = df["Estado MD4C"].value_counts().to_dict()
+        conteo = df_items["Estado MD4C"].value_counts().to_dict()
         total = sum(conteo.values())
 
         # --- 5️⃣ COLORES PERSONALIZADOS ---
@@ -159,7 +230,7 @@ class Caminos:
             st.dataframe(
                 df[["CODIGO", "Estado MD4C"]],
                 hide_index=True,
-                use_container_width=True,
+                width='stretch',
                 column_config={
                     "CODIGO": st.column_config.Column("Código", width="small"),
                     "Estado MD4C": st.column_config.Column("Estado MD4C", width="medium"),
@@ -175,8 +246,6 @@ class Caminos:
             cols[i].metric(estado, f"{valor}", f"{porcentaje:.1f}%", label_visibility="visible")
 
         style_metric_cards(border_left_color="#ff9800")
-
-
 
 class Pedidos:
     @st.dialog('➕ NUEVA GPI', width='medium')
@@ -972,3 +1041,5 @@ class Acciones:
             holder_historico.button('HISTORICO', width='stretch', icon=':material/history_toggle_off:', key=f'btn_acciones_log_{f_key}', on_click=Acciones.log, kwargs={'accion': accion})
 
         return accion
+
+

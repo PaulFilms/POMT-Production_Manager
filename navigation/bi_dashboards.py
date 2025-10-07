@@ -51,8 +51,8 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+# import numpy as np
+# import matplotlib.pyplot as plt
 
 from functions import *
 
@@ -87,9 +87,9 @@ st.container(border=False, height=20) # Separador
 st.header('TOP10 Caminos Criticos', divider='orange')
 
 ## CALENDARIO
-st.container(border=False, height=20) # Separador
-st.header('Calendario Entregas', divider='orange')
-UI.my_calendar()
+# st.container(border=False, height=20) # Separador
+# st.header('Calendario Entregas', divider='orange')
+# UI.my_calendar()
 
 
 

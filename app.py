@@ -3,17 +3,6 @@ import streamlit as st
 from frontend import *
 from functions import *
 
-import debugpy
-
-# Habilitar depuración sin bloquear
-try:
-    if not debugpy.is_client_connected():
-        debugpy.listen(("localhost", 5678))
-        print("🪲 Debugger escuchando en localhost:5678 (modo no bloqueante)")
-except Exception as e:
-    print(f"⚠️{e}")
-
-
 
 if __name__ == '__main__':
 
@@ -23,6 +12,16 @@ if __name__ == '__main__':
         layout="wide", # "centered",
         initial_sidebar_state= "auto" # "collapsed"
     )
+
+    import debugpy
+    # Habilitar depuración sin bloquear
+    try:
+        if not debugpy.is_client_connected():
+            debugpy.listen(("localhost", 5678))
+            print("🪲 Debugger escuchando en localhost:5678 (modo no bloqueante)")
+    except Exception as e:
+        # print(f"⚠️{e}")
+        pass
 
     if not os.path.exists('temp'): os.mkdir('temp')
 
