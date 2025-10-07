@@ -228,9 +228,10 @@ ORDER BY gpi.id;
 
 
 -- DROP VIEW IF EXISTS "main"."view_hitos";
-CREATE VIEW IF NOT EXISTS view_hitos AS
+CREATE VIEW view_hitos AS
 SELECT 
 	hitos.*,
+	gpi.bu_id,
 	
     -- Conteo de acciones (estado ≠ 4)
     COALESCE(a.∑_acciones, 0) AS "∑_acciones",
@@ -247,6 +248,13 @@ FROM hitos
 
 LEFT JOIN (
 	SELECT
+		id,
+		bu_id
+	FROM pedidos
+) gpi ON hitos.pedido_id=gpi.id
+
+LEFT JOIN (
+	SELECT
 		hito_id,
 		COUNT(*) AS "∑_acciones",
         MIN(CASE WHEN causa = 'LM' THEN alarma END) AS LM,
@@ -260,7 +268,7 @@ LEFT JOIN (
 	GROUP BY hito_id
 ) a ON hitos.id=a.hito_id
 
-ORDER BY hitos.id;
+ORDER BY hitos.id
 
 
 
