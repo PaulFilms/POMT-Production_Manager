@@ -18,8 +18,7 @@ st.logo(r'assets\logo_extend.svg', size='large')
 ## PEDIDOS
 
 pedido: ORM.Pedido = Pedidos.tbl()
-# hito: ORM.Hito = None
-# accion: ORM.Accion = None
+
 
 if pedido != None:
 

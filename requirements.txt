@@ -14,3 +14,4 @@ matplotlib
 # calplot # https://pypi.org/project/calplot/
 # Office365-REST-Python-Client # Extracción de datos desde SharePoint
 streamlit-calendar ## https://pypi.org/project/streamlit-calendar/ ## https://fullcalendar.io/docs
+streamlit-aggrid ## https://github.com/PablocFonseca/streamlit-aggrid

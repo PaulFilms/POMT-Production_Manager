@@ -5,10 +5,8 @@ import pandas as pd
 
 import streamlit as st
 from functions import *
-
-if TYPE_CHECKING:
-    from streamlit.delta_generator import DeltaGenerator
-
+from frontend import *
+import plotly.graph_objects as go
 
 
 ## TOOLS
@@ -66,9 +64,9 @@ pg_entregas = st.Page(r'navigation/entregas.py', title='PLAN ENTREGAS', icon=':m
 pg_productos = st.Page(r'navigation/productos.py', title='PRODUCTOS', icon=':material/barcode_reader:')
 pg_business_unit = st.Page(r'navigation/busines_unit.py', title='BUSINESS UNIT', icon=':material/business_center:')
 pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARDS', icon=':material/monitoring:')
-# pg_chat_ia = st.Page(r'navigation/chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
-# pg_gantt = st.Page(r'navigation/gantt.py', title='GANTT', icon=':material/smart_toy:')
-
+pg_chat_ia = st.Page(r'navigation/chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
+pg_gantt = st.Page(r'navigation/gantt.py', title='GANTT', icon=':material/smart_toy:')
+# pg_test = st.Page(r'navigation/tester.py', title='TEST', icon=':material/smart_toy:')
 
 
 ## UI
@@ -134,57 +132,23 @@ class UI:
 
 class Caminos:
     def tbl(pedido_id: str):
-        import plotly.graph_objects as go
-        from estilos import style_metric_cards
-        from functions import DB  # conexión global SQL definida en tu proyecto
-
-        # --- 1️⃣ OBTENER EL ARCHIVO ASOCIADO AL PEDIDO ---
-        # sql_archivo = "SELECT pde_archivo FROM view_pedidos WHERE id = ?;"
-        # result = DB.execute(sql_archivo, values=[pedido_id], fetch=1)
-        # if not result:
-        #     st.warning(f"No se encontró ningún archivo asociado al pedido '{pedido_id}'")
-        #     return
         
-        # archivo = result[0]
-        df_pedidos = get_pedidos(st.session_state.pedidos)
-        archivo = df_pedidos[df_pedidos['id']==pedido_id]['pde_archivo']
 
+        df_pedidos = get_pedidos(st.session_state.pedidos)
+        filename = df_pedidos[df_pedidos['id'] == pedido_id]['pde_archivo'].values[0]
 
         # --- 2️⃣ CONSTRUIR CONDICIÓN PARA LOS 20 CAMINOS CRÍTICOS ---
-        columnas_cc = [f'"Camino Critico {i}"' for i in range(1, 21)]
-        # where_cond = " OR ".join([f"{col} GLOB '[0-9]*'" for col in columnas_cc])
+        df_items = get_c_criticos(filename=filename)
 
-        # sql_items = f"""
-        #     SELECT "CODIGO", "Estado MD4C"
-        #     FROM csv_pde_items
-        #     WHERE filename = ?
-        #     AND ({where_cond})
-        #     ORDER BY rowid DESC
-        #     LIMIT 20;
-        # """
-
-        # data = DB.execute(sql_items, values=[archivo], fetch=2)
-        df_items = get_pde_items()
-        # headers = DB.execute("SELECT 'CODIGO', 'Estado MD4C' FROM csv_pde_items LIMIT 0;", fetch=4)
-        df_items = df_items[df_items['filename']==archivo]
-        for col in columnas_cc:
+        for col in [col for col in df_items.columns if 'Critico' in col]:
             df_items = df_items[df_items[col]!=None]
-        # print(df.head())
 
-        # if df.empty:
-        #     st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{archivo}'")
-            # return
 
         if df_items.empty:
-            st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{archivo}'")
+            st.warning(f"No hay registros en csv_pde_items con 'Camino Critico 1' = 1 para el archivo '{filename}'")
             return
 
         # --- 3️⃣ LIMPIAR DATOS ---
-        # Eliminar filas con Estado MD4C vacío o nulo
-        # df = df[df["Estado MD4C"].notna() & (df["Estado MD4C"] != "")]
-        # if df.empty:
-        #     st.warning("No hay valores válidos en la columna 'Estado MD4C'.")
-        #     return
         df_items = df_items[df_items["Estado MD4C"].notna() & (df_items["Estado MD4C"] != "")]
         if df_items.empty:
             st.warning("No hay valores válidos en la columna 'Estado MD4C'.")
@@ -197,17 +161,16 @@ class Caminos:
         # --- 5️⃣ COLORES PERSONALIZADOS ---
         # Puedes ajustar los colores según los estados reales que devuelva tu BD
         palette = [
-            "#FFEB3B", "#03A9F4", "#9C27B0", "#03A9F4", "#9C27B0", "#FF9800", "#607D8B"
+            "#004254", "#FFC000", "#009999", "#03A9F4", "#9C27B0", "#91FF00", "#607D8B"
         ]
         estados_unicos = list(conteo.keys())
         colores = {estado: palette[i % len(palette)] for i, estado in enumerate(estados_unicos)}
 
         # --- 6️⃣ VISUALIZACIÓN ---
-        st.subheader(f"📦 Caminos Críticos — {pedido_id}", divider='orange')
+        # st.subheader(f"📦 Caminos Críticos — {pedido_id}", divider='orange')
 
         # --- Gráfico Doughnut ---
-        col_graf, col_tabla = st.columns([0.6, 0.4])
-        with col_graf:
+        with st.container(border=True):
             fig = go.Figure(
                 data=[go.Pie(
                     labels=list(conteo.keys()),
@@ -225,17 +188,26 @@ class Caminos:
             st.plotly_chart(fig, use_container_width=True)
 
         # --- Tabla con las columnas reales ---
-        with col_tabla:
-            st.markdown(f"### Codigos Retrasados")
-            st.dataframe(
-                df[["CODIGO", "Estado MD4C"]],
-                hide_index=True,
-                width='stretch',
-                column_config={
-                    "CODIGO": st.column_config.Column("Código", width="small"),
-                    "Estado MD4C": st.column_config.Column("Estado MD4C", width="medium"),
-                }
-            )
+        # with col_tabla:
+        st.markdown(f"### Codigos Retrasados")
+        st.dataframe(
+            df_items[[
+                "CODIGO",
+                "NOMBRE",
+                "Centro",
+                "Estado MD4C",
+                "Orden",
+                "Fecha Inicio",
+                "Fecha Fin",
+                "Retraso (días)",
+            ]],
+            hide_index=True,
+            width='stretch',
+            column_config={
+                "CODIGO": st.column_config.Column("Código", width="small"),
+                "Estado MD4C": st.column_config.Column("Estado MD4C", width="medium"),
+            }
+        )
 
         # --- Métricas debajo ---
         st.container(border=False, height=10)
@@ -245,12 +217,20 @@ class Caminos:
             porcentaje = valor / total * 100
             cols[i].metric(estado, f"{valor}", f"{porcentaje:.1f}%", label_visibility="visible")
 
-        style_metric_cards(border_left_color="#ff9800")
+        UI.style_metric_cards(border_left_color="#ff9800")
 
 class Pedidos:
+    columns = [
+        'id', 'info', '#', 'bu_id', 'planificador', 'fecha_ini', 'fecha_fin', '∑_hitos', '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA',
+        'pde_retraso_dias',
+        'pde_material_critico',
+        'pde_description',
+        'pde_actualizado',
+        'pde_usuario',
+    ]
     @st.dialog('➕ NUEVA GPI', width='medium')
     def new() -> None:
-        pedido_id = st.text_input('PEDIDO Id', value=None)
+        pedido_id = st.text_input('GPI', value=None)
         contraseña = st.text_input('CONTRASEÑA', value=None)
         info = st.text_area('INFO / DESCRIPCIÓN', value=None, height=1)
         fecha_ini = st.date_input('FECHA INICIO', value=None, format='YYYY-MM-DD')
@@ -526,6 +506,10 @@ class Pedidos:
         return pedido
 
 class Hitos:
+    columns = [
+        'nombre', '#', 'estado', 'id', 'responsable', 'fecha_req', 'fecha_plan', 'Δ', 
+        '∑_acciones', 'LM', 'DT', 'PL', 'PR', 'EM', 'CA',
+    ]
     @st.dialog('➕ NUEVO HITO', width='medium')
     def new(pedido_id: str) -> None:
         col_alert, col_bu, col_user = st.columns(3)
@@ -717,8 +701,6 @@ class Hitos:
                 lambda col: col.str.contains(filter_str, case=False, na=False)
             ).any(axis=1)
             df = df[mask]
-        # df = df[df['bu_id']==filter_bunit] if filter_bunit != None else df
-        # df = df[df['planificador']==filter_user] if filter_user != None else df
         df = df[df['alarma']==Alarmas.get_int(filter_alert)] if filter_alert in Alarmas.colors() else df
         
         ## OPCIÓN REPORT
@@ -806,6 +788,8 @@ class Hitos:
         return hito
 
 class Acciones:
+    columns = ['#', 'causa', 'info', 'accion', 'fecha_accion', 'fecha_req', 'planificador', 'responsable', 'estado']
+
     @st.dialog('➕ NUEVA ACCIÓN', width='medium')
     def new(pedido_id: str, hito_id: int = None) -> None:
         causa = st.selectbox('CAUSA', options=Causas.get_values(), index=None, accept_new_options=False)

@@ -427,3 +427,38 @@ ORDER BY hitos.fecha_plan ASC
 LIMIT 3;
 
 
+DROP VIEW IF EXISTS "main"."view_pde_items";
+CREATE VIEW IF NOT EXISTS view_pde_items AS
+SELECT 
+    id
+    , filename
+    , CODIGO
+    , nombre
+	, Centro
+    , "Estado MD4C"
+	, Orden
+	, "Fecha Inicio"
+	, "Fecha Fin"
+	, "Retraso (días)"
+	, "Camino Critico 1"
+	, "Camino Critico 2"
+	, "Camino Critico 3"
+	, "Camino Critico 4"
+	, "Camino Critico 5"
+	, "Camino Critico 6"
+	, "Camino Critico 7"
+	, "Camino Critico 8"
+	, "Camino Critico 9"
+	, "Camino Critico 10"
+	, "Camino Critico 11"
+	, "Camino Critico 12"
+	, "Camino Critico 13"
+	, "Camino Critico 14"
+	, "Camino Critico 15"
+	, "Camino Critico 16"
+	, "Camino Critico 17"
+	, "Camino Critico 18"
+	, "Camino Critico 19"
+	, "Camino Critico 20"
+	
+FROM csv_pde_items

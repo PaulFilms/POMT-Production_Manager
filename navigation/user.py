@@ -1,42 +1,74 @@
-from typing import TYPE_CHECKING
-
 import streamlit as st
 from functions import *
+from frontend import *
 
-# estados = ['TODO']
-# estados.extend([e.value[0] for e in Estados])
-estados = [f'{e.value[0]} {e.name}' for e in Estados]
-# estados_help = ' / '.join(estados_help)
 
-if TYPE_CHECKING:
-    from functions import Usuario
-#     login: Usuario = st.session_state['login']
-# else:
-#     login = st.session_state['login']
+session_state_start()
 
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.write(f'Hello {st.session_state.login.nombre}')
+st.logo(r'assets\logo_extend.svg', size='large')
+
+st.write(f'Hello {st.session_state.login.nombre} 🙋')
 
 # col_estado, col_bunit = st.columns(2)
 
-tab_pedidos, tab_acciones = st.tabs(['GPIs', 'PDCA'])
+## DATA
+
+df_pedidos = get_pedidos(st.session_state.pedidos)
+df_pedidos = df_pedidos[df_pedidos['planificador']==st.session_state.login.id]
+df_hitos = get_hitos()
+df_hitos = df_hitos[
+    df_hitos['responsable']==st.session_state.login.id
+]
+df_acciones = get_acciones()
+df_acciones = df_acciones[
+    (df_acciones['planificador']==st.session_state.login.id) | 
+    (df_acciones['responsable']==st.session_state.login.id)
+]
+
+
+## KPIs
+
+# with st.container(border=True):
+col_kpi_gpi, col_kpi_hitos, col_kpi_pdca = st.columns(3)
+
+col_kpi_gpi.metric(
+    'GPIs', border=True,
+    value=len(df_pedidos)
+)
+col_kpi_hitos.metric(
+    'Hitos', border=True,
+    value=len(df_hitos)
+)
+col_kpi_pdca.metric(
+    'PDCA', border=True,
+    value=len(df_acciones)
+)
+
+UI.style_metric_cards(border_left_color="#ff9800")
+
+
+
+## TABLES
+
+tab_pedidos, tab_hitos, tab_acciones = st.tabs(['GPIs', 'HITOS', 'PDCA'])
 
 with tab_pedidos:
-    # col_estado, col_bunit = st.columns(2)
-    # # col_estado.radio('ESTADO', options=estados, index=1, label_visibility='visible', horizontal=True, width='stretch', help=estados_help)
-    # col_estado.selectbox('ESTADO', options=estados, index=None, label_visibility='visible', width='stretch',)
-    # col_bunit.selectbox('BUSINESS UNIT', options=get_business_units()['id'].tolist(), label_visibility='visible', index=None, accept_new_options=False )
+    st.dataframe(
+        df_pedidos[Pedidos.columns],
+        hide_index=True
+    )
 
-    # df_pedidos = get_pedidos(st.session_state.pedidos)
-
-    # tbl_pedidos = st.dataframe(
-    #     df_pedidos,
-    #     width='stretch', on_select='rerun', selection_mode='single-row'
-    # )
-    st.container(border=False, height=100)
-
+with tab_hitos:
+    st.dataframe(
+        df_hitos[Hitos.columns],
+        hide_index=True
+    )
 
 with tab_acciones:
-    pass
+    st.dataframe(
+        df_acciones[Acciones.columns],
+        hide_index=True
+    )

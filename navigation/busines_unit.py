@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING
+# from typing import TYPE_CHECKING
 import pandas as pd
-from mysqlite import SQL
-from streamlit_timeline import timeline # https://pypi.org/project/streamlit-timeline/
+# from mysqlite import SQL
+# from streamlit_timeline import timeline # https://pypi.org/project/streamlit-timeline/
 
 import streamlit as st
 from app import session_state_start
@@ -12,8 +12,6 @@ session_state_start()
 ## TOOLS
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-DB = SQL(path_db=path_db)
-# if not 'bu' in st.session_state: st.session_state.bu = 1
 
 def tbl_bunits(df: pd.DataFrame) -> int:
     columns = ['id', 'info', '∑_GPIs', '🟥', '🟨', '🟩']

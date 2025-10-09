@@ -19,10 +19,11 @@ import plotly.graph_objects as go
 ## ____________________________________________________________________________________________________________________________________________________________________
 
 SQLITE: bool = 1
+LOCAL: bool = 1
 if SQLITE:
     path_file = 'POMT_production_manager.db'
     path_net = r"\\madtornas01\TorTGP$\PPD\POMT"
-    if os.path.exists(path_net):
+    if os.path.exists(path_net) and not LOCAL:
         path_db = os.path.join(path_net, path_file)
         DB = SQL(path_db=path_db)
     else:
@@ -406,19 +407,36 @@ def get_pedidos(count: int = 0) -> 'pd.DataFrame':
 
     return df
 
+# @st.cache_data
+# def get_pde_items(count: int = 0) -> 'pd.DataFrame':
+#     '''
+#     st.session_state.pde_items
+#     '''
+#     table = 'csv_pde_items'
+#     if SQLITE:
+#         headers = DB.execute(f"SELECT * FROM {table} LIMIT 0;", fetch=4)
+#         data = DB.select('SELECT * FROM csv_pde_items ORDER BY id DESC;')
+#         df = pd.DataFrame(data, columns=headers)
+#         return df
 
-@st.cache_data
-def get_pde_items(count: int = 0) -> 'pd.DataFrame':
-    '''
-    st.session_state.pde_items
-    '''
-    table = 'csv_pde_items'
-    if SQLITE:
-        headers = DB.execute(f"SELECT * FROM {table} LIMIT 0", fetch=4)
-        data = DB.select('SELECT * FROM csv_pde_items')
-        df = pd.DataFrame(data, columns=headers)
-        return df
-
+def get_c_criticos(filename: str) -> 'pd.DataFrame':
+    table = 'view_pde_items'
+    sql = f"""
+    WITH RECURSIVE tbl AS (
+        SELECT * FROM {table}
+        WHERE filename="{filename}"
+    )\n
+    """
+    l = []
+    for i in range(1,21):
+        l.append(f'''SELECT * FROM (SELECT * FROM tbl WHERE "Camino Critico {i}" IS NOT NULL ORDER BY id DESC LIMIT 1)''')
+    sql += '\nUNION ALL\n'.join(l)
+    headers = DB.execute(f"SELECT * FROM {table} LIMIT 0;", fetch=4)
+    # data = DB.select('SELECT * FROM csv_pde_items ORDER BY id DESC;')
+    data = DB.select(sql)
+    df = pd.DataFrame(data, columns=headers)
+    print(df)
+    return df
 
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:
     if not departamento_id:
