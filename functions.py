@@ -435,7 +435,6 @@ def get_c_criticos(filename: str) -> 'pd.DataFrame':
     # data = DB.select('SELECT * FROM csv_pde_items ORDER BY id DESC;')
     data = DB.select(sql)
     df = pd.DataFrame(data, columns=headers)
-    print(df)
     return df
 
 def get_usuarios_by_dept(departamento_id: str, count_usuarios: int = 0, count_departamentos: int = 0) -> List[str]:

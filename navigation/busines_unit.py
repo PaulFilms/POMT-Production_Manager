@@ -71,7 +71,7 @@ def tbl_bunits(df: pd.DataFrame) -> int:
 # with st.sidebar():
 #     st.checkbox('TABLA PEDIDOS')
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 # st.title('BUSINESS UNIT')
 
@@ -103,7 +103,7 @@ if bunit_id:
         FROM hitos
             LEFT JOIN pedidos ON hitos.pedido_id = pedidos.id 
         WHERE bu_id='{bunit_id}'
-        ORDER BY hitos.fecha_fin DESC
+        ORDER BY hitos.fecha_plan DESC
         """
         headers = DB.execute(sql + " LIMIT 0;", fetch=1)
         data = DB.select(sql)

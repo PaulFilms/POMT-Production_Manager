@@ -13,7 +13,7 @@ session_state_start()
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 ## PEDIDOS
 

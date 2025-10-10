@@ -49,6 +49,7 @@ def login():
         else:
             data = DB.execute('SELECT * FROM usuarios WHERE id=?;', values=[username], fetch=1)
             st.session_state.login = ORM.Usuario.get_form_sql(data)
+            print('LOGIN:', st.session_state.login.id, datetime.now().strftime(r'%Y-%m-%d / %H:%M'))
             st.rerun()
 
 def logout():
@@ -217,7 +218,7 @@ class Caminos:
             porcentaje = valor / total * 100
             cols[i].metric(estado, f"{valor}", f"{porcentaje:.1f}%", label_visibility="visible")
 
-        UI.style_metric_cards(border_left_color="#ff9800")
+        # UI.style_metric_cards(border_left_color="#ff9800")
 
 class Pedidos:
     columns = [
@@ -456,8 +457,8 @@ class Pedidos:
                 'pde_usuario',
             ]
             columns_config = {
-                'id': st.column_config.Column('GPI', width=None, pinned=True),
-                'info': st.column_config.Column('DESCRIPCIÓN GPI', width=None, pinned=True),
+                'id': st.column_config.Column('GPI', width=None, pinned=None),
+                'info': st.column_config.Column('DESCRIPCIÓN GPI', width=None, pinned=None),
                 '#': st.column_config.Column('#', width=50, pinned=False),
                 'bu_id': st.column_config.Column('BUS. UNIT', width='small'),
                 'planificador': st.column_config.Column('IP', width='small'),
@@ -743,7 +744,7 @@ class Hitos:
             ]
             
             columns_config = {
-                'nombre': st.column_config.Column('DESCRIPCIÓN HITO', width=300, pinned=True),
+                'nombre': st.column_config.Column('DESCRIPCIÓN HITO', width=300, pinned=False),
                 '#': st.column_config.Column('#', width=50, pinned=False),
                 'estado': st.column_config.Column('ESTADO', width=50, pinned=False),
                 'id': st.column_config.Column('id', width=30),
