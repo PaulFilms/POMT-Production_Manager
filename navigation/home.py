@@ -8,7 +8,7 @@ from functions import *
 
 session_state_start()
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 st.title('PRODUCTION MANAGER')
 st.divider()

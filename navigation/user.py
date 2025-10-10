@@ -8,7 +8,7 @@ session_state_start()
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 st.write(f'Hello {st.session_state.login.nombre} 🙋')
 
@@ -47,7 +47,7 @@ col_kpi_pdca.metric(
     value=len(df_acciones)
 )
 
-UI.style_metric_cards(border_left_color="#ff9800")
+# UI.style_metric_cards(border_left_color="#ff9800")
 
 
 

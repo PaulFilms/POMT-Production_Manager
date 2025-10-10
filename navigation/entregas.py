@@ -28,7 +28,7 @@ hoy = datetime.now().strftime(r'%Y-%m-%d')
 ## PAGE
 ## ____________________________________________________________________________________________________________________________________________________________________
 
-st.logo(r'assets\logo_extend.svg', size='large')
+st.logo(r'assets/logo_extend.svg', size='large')
 
 ## PLAN ENTREGAS
 col_opciones, col_filtros, col_vistas = st.columns(3)
