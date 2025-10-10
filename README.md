@@ -26,6 +26,9 @@
     - ...
 
 
+<br>
+<br>
+
 ## LINKS
 
 - [GITHUB PROJECT](https://github.com/users/PaulFilms/projects/1)
@@ -37,17 +40,5 @@
 
 ## TAREAS
 
-### ESTRUCTURA DE DATOS
-- Implementar template Indra en hitos:
-    
-    `¿¿ Diseño, Lista de Materiales, Industrialización, PPI, Entrega ??`
-
-
-
-### CAMINOS CRITICOS: 
-    - Control de datos de entrada (Excel)
-    - Extracción de SAP
-
-### DESPLIEGUE
-    - FASE1 (Server Pequeño) / SQLite, Streamlit
-    - FASE2 / No definido
+- [NOTION](https://pablopila.notion.site/POMT-PRODUCTION-MANAGER-27ab8ccf7cbc8053908dcc1547a2f85e)
+- [GITHUB PROJECT](https://github.com/users/PaulFilms/projects/1)

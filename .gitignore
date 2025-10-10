@@ -1,15 +1,26 @@
+## PYTHON
 __pycache__/
-.env
 .venv
-.vscode
 venv
+.vscode
+
+## SECRETS
+.env
+secrets.toml
+
+## DATABASE
+*.db
+
+## Jupyter
+test.ipynb
+PruebasDB.ipynb
+prb.ipynb
+
+## TESTING
 temp/
 test.py
-test.ipynb
-*.db
-secrets.toml
-PruebasDB.ipynb
-mysqlite.py
-actualizar_tablas.py
-prb.ipynb
+
+## External Components
 my_daypilot/
+
+actualizar_tablas.py

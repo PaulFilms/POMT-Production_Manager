@@ -487,7 +487,7 @@ class Pedidos:
                 selection_mode='single-row',
                 on_select='rerun',
                 height=tbl_height,
-                row_height=40,
+                row_height=50,
                 column_config=columns_config
             )
             tbl_iloc: int = tbl.selection['rows'][0] if tbl.selection['rows'] != [] else None

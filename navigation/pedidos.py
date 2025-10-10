@@ -41,7 +41,7 @@ if pedido != None:
         # Acciones.tbl_acciones(hito.id)
         st.write('Agregar Acción por lotes')
         column_config = {
-            'causa': st.column_config.SelectboxColumn('CAUSA', options=Causas.get_values(), width=None),
+            'causa': st.column_config.SelectboxColumn('CAUSA', options=Causas.get_values(), width='medium'),
             'alarma': st.column_config.SelectboxColumn('ALARMA', options=Alarmas.colors(), width=None),
             'info': st.column_config.TextColumn('INFORMACIÓN', width=None),
             'accion': st.column_config.TextColumn('ACCIÓN', width=None),
@@ -54,13 +54,17 @@ if pedido != None:
             column_config=column_config,
             hide_index=True,
             key=f'new_accion_{pedido.id}',
-            use_container_width=True,
+            width='stretch',
             num_rows='dynamic',
+            row_height=40
             # disabled=not (st.session_state['user'] and st.session_state['user'].departamento in ['PPD', 'CALIDAD']),
             # on_change=Acciones.add,
             # args=(pedido.id,),
             # kwargs={'hito_id': None, 'f_key': f'new_accion_{pedido.id}'},
         )
+
+        if df_acciones_new.shape[0] > 0:
+            st.button('AÑADIR ACCIONES', icon='➕')
     
     with tab_manufact:
         Caminos.tbl(pedido.id)
