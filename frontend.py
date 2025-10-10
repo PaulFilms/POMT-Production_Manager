@@ -66,7 +66,7 @@ pg_business_unit = st.Page(r'navigation/busines_unit.py', title='BUSINESS UNIT',
 pg_bi_dashboards = st.Page(r'navigation/bi_dashboards.py', title='BI / DASHBOARDS', icon=':material/monitoring:')
 pg_chat_ia = st.Page(r'navigation/chat_ia.py', title='ARTIFICIAL INTELLIGENCE', icon=':material/smart_toy:')
 pg_gantt = st.Page(r'navigation/gantt.py', title='GANTT', icon=':material/smart_toy:')
-# pg_test = st.Page(r'navigation/tester.py', title='TEST', icon=':material/smart_toy:')
+pg_test = st.Page(r'navigation/tester.py', title='TEST', icon=':material/smart_toy:')
 
 
 ## UI

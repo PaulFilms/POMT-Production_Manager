@@ -52,7 +52,7 @@ if __name__ == '__main__':
                 # pg_chat_ia,
                 # pg_productos,
                 # pg_gantt,
-                # pg_test,
+                pg_test,
             ]
         }
 

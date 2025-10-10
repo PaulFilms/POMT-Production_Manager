@@ -39,6 +39,28 @@ if pedido != None:
         if accion:
             pass
         # Acciones.tbl_acciones(hito.id)
+        st.write('Agregar Acción por lotes')
+        column_config = {
+            'causa': st.column_config.SelectboxColumn('CAUSA', options=Causas.get_values(), width=None),
+            'alarma': st.column_config.SelectboxColumn('ALARMA', options=Alarmas.colors(), width=None),
+            'info': st.column_config.TextColumn('INFORMACIÓN', width=None),
+            'accion': st.column_config.TextColumn('ACCIÓN', width=None),
+            'departamento': st.column_config.SelectboxColumn('DEPARTAMENTO', options=get_departamentos(st.session_state.departamentos)['id'].to_list(), width=None),
+            'responsable': st.column_config.SelectboxColumn('RESPONSABLE', options=get_usuarios(st.session_state.usuarios)['id'].to_list(), width=None),
+            'fecha_req': st.column_config.DatetimeColumn('FECHA REQUERIDA', format='YYYY-MM-DD', width=None),
+        }
+        df_acciones_new = st.data_editor(
+            pd.DataFrame(columns=column_config.keys()),
+            column_config=column_config,
+            hide_index=True,
+            key=f'new_accion_{pedido.id}',
+            use_container_width=True,
+            num_rows='dynamic',
+            # disabled=not (st.session_state['user'] and st.session_state['user'].departamento in ['PPD', 'CALIDAD']),
+            # on_change=Acciones.add,
+            # args=(pedido.id,),
+            # kwargs={'hito_id': None, 'f_key': f'new_accion_{pedido.id}'},
+        )
     
     with tab_manufact:
         Caminos.tbl(pedido.id)
